@@ -1005,8 +1005,18 @@ addEventListener('keydown',e=>{if(e.key==='Escape')closeDrill();});
 // Filtren i .controls är helt oförändrade och fungerar precis som i den
 // vanliga dashboarden, inklusive i drill-vyn.
 (function(){
-  const vy = document.documentElement.getAttribute('data-vy');
+  // Läser #vy=... direkt ur location.hash HÄR IGEN, i stället för att bara
+  // lita på attributet skriptet i <head> försökte sätta. I praktiken visade
+  // det sig att location.hash inte alltid var ifyllt ännu när det tidiga
+  // head-skriptet körde (troligen något NetSuite gör i navigeringskedjan
+  // innan sidan är klar) - det gav en sida utan fokusvy trots att adressen
+  // i webbläsaren såg helt rätt ut. Att läsa om det här, efter att hela
+  // sidan laddats, är den robusta varianten; head-skriptet får stå kvar som
+  // ett bästa-försök för att undvika att hela dashboarden hinner blinka
+  // till innan detta block hunnit köra.
+  const vy = new URLSearchParams(location.hash.replace(/^#/, '')).get('vy');
   if(!vy) return; // inget värde i fragmentet – visa hela dashboarden som vanligt
+  document.documentElement.setAttribute('data-vy', vy);
   const helaUrl = location.pathname + location.search; // samma URL utan fragmentet
 
   if(vy === 'drill'){
