@@ -1,0 +1,13 @@
+# SDF/SuiteCloud CLI-lokala filer
+.suitecloud-cli/
+node_modules/
+
+# Verkligt kund-/handläggarnamn-underlag – innehåller riktiga kund- och
+# personnamn ur NetSuite. Ska INTE hamna i git/GitHub. Ligger kvar lokalt
+# så att `suitecloud project:deploy` fortfarande laddar upp rätt fil till
+# File Cabinet – .gitignore påverkar bara git, inte SDF-deploy.
+src/FileCabinet/SuiteScripts/supportdashboard/namn.json
+
+# Övrigt skräp
+.DS_Store
+*.log

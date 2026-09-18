@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<script type="application/json" id="cowork-artifact-meta">
+{
+  "name": "Supportdashboard",
+  "schemaVersion": 1,
+  "description": "Supportdashboard över hela ärendestocken i Noresca Admin (NetSuite konto 57409) – öppen backlog, avvikelser i hanteringen, kundbild och belastning per handläggare. Ögonblicksbild 2026-08-12, uppdateras inte automatiskt.",
+  "mcpTools": [],
+  "mcpServerNames": []
+}
+</script>
+<html lang="sv" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Supportdashboard – Noresca Admin</title>
+<style>
+:root{
+  color-scheme: light;
+  --plane:#f9f9f7; --surface:#fcfcfb;
+  --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
+  --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,0.10);
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1f9e57; --s4:#eda100; --s5:#e87ba4;
+  --seq-250:#86b6ef; --seq-350:#5598e7; --seq-450:#2a78d6; --seq-550:#1c5cab; --seq-650:#104281;
+  --good:#0ca30c; --warning:#fab219; --serious:#ec835a; --critical:#d03b3b;
+  --good-text:#006300;
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --plane:#0d0d0d; --surface:#1a1a19;
+  --ink:#ffffff; --ink2:#c3c2b7; --muted:#898781;
+  --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,0.10);
+  --s1:#3987e5; --s2:#d95926; --s3:#34c77a; --s4:#c98500; --s5:#d55181;
+  --seq-250:#184f95; --seq-350:#256abf; --seq-450:#3987e5; --seq-550:#6da7ec; --seq-650:#9ec5f4;
+  --good-text:#0ca30c;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--plane);color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:14px;line-height:1.5}
+.wrap{max-width:1360px;margin:0 auto;padding:24px 20px 64px}
+h1{font-size:22px;font-weight:650;margin:0 0 2px}
+h2{font-size:15px;font-weight:650;margin:0 0 4px;letter-spacing:.01em}
+h3{font-size:13px;font-weight:600;margin:0 0 10px;color:var(--ink2)}
+p.sub{margin:0;color:var(--ink2);font-size:13px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 20px}
+.section{margin-top:22px}
+.section>.head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:10px;flex-wrap:wrap}
+.section>.head .note{color:var(--muted);font-size:12px}
+header.top{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap;
+  padding-bottom:16px;border-bottom:1px solid var(--border)}
+.controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+select,input[type=search],button{font:inherit;color:var(--ink);background:var(--surface);
+  border:1px solid var(--border);border-radius:7px;padding:6px 10px}
+select option{color:var(--ink);background:var(--surface)}
+button{cursor:pointer}
+button.ghost[aria-pressed="true"]{background:var(--seq-250);border-color:transparent;color:var(--ink)}
+.filterbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:14px 0 0}
+.filterbar label{font-size:12px;color:var(--ink2)}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink2);
+  border:1px solid var(--border);border-radius:999px;padding:3px 10px;background:var(--surface)}
+
+/* hero + tiles */
+.herorow{display:grid;grid-template-columns:minmax(240px,1fr) 3fr;gap:14px;align-items:stretch}
+.hero{display:flex;flex-direction:column;justify-content:center}
+.hero .label{font-size:13px;color:var(--ink2)}
+.hero .value{font-size:56px;font-weight:650;line-height:1.05;margin:6px 0 2px}
+.hero .meta{font-size:12px;color:var(--muted)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:12px}
+.tile{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+.tile .label{font-size:12px;color:var(--ink2);min-height:32px}
+.tile .value{font-size:26px;font-weight:650;margin-top:2px}
+.tile .delta{font-size:12px;color:var(--muted);margin-top:2px}
+.delta.up{color:var(--critical)} .delta.down{color:var(--good-text)}
+
+/* avvikelser */
+.avvik{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.av{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;
+  display:flex;flex-direction:column;gap:6px}
+.av .top{display:flex;align-items:center;gap:10px}
+.av .dot{width:10px;height:10px;border-radius:3px;flex:0 0 auto}
+.av .n{font-size:24px;font-weight:650;margin-left:auto;font-variant-numeric:tabular-nums}
+.av .name{font-size:13px;font-weight:600}
+.av .desc{font-size:12px;color:var(--ink2)}
+.av .cases{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;word-break:break-word}
+.av button.link{background:none;border:none;padding:0;color:var(--ink2);text-decoration:underline;
+  font-size:12px;align-self:flex-start;cursor:pointer}
+
+/* charts */
+.chartgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px}
+.kwlist{list-style:none;margin:12px 0 0;padding:0;font-size:12px;color:var(--ink2)}
+.kwlist li{margin-bottom:7px;padding-top:7px;border-top:1px solid var(--border)}
+.kwlist li:first-child{padding-top:0;border-top:none}
+.kwlist b{color:var(--ink)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--ink2);margin-bottom:6px}
+.legend .key{display:inline-flex;align-items:center;gap:6px}
+.legend .swatch{width:14px;height:3px;border-radius:2px}
+svg{display:block;width:100%;height:auto;overflow:visible}
+.tick{font-size:11px;fill:var(--muted)}
+.axlabel{font-size:11px;fill:var(--muted)}
+.dlabel{font-size:11px;fill:var(--ink2);font-weight:600}
+.gridline{stroke:var(--grid);stroke-width:1}
+.baseline{stroke:var(--axis);stroke-width:1}
+
+/* tables */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--grid);vertical-align:top}
+th{font-size:12px;color:var(--ink2);font-weight:600;white-space:nowrap;cursor:pointer;user-select:none}
+th.num,td.num{text-align:right;font-variant-numeric:tabular-nums}
+tbody tr:hover{background:color-mix(in srgb, var(--seq-250) 14%, transparent)}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:999px;border:1px solid var(--border);color:var(--ink2);white-space:nowrap}
+.tag.nosla{border-color:var(--serious);color:var(--ink)}
+.bar-cell{position:relative;min-width:90px}
+.bar-cell .b{height:8px;border-radius:0 4px 4px 0;background:var(--s1);display:block}
+.warnnum{color:var(--critical);font-weight:650}
+.scroll{max-height:520px;overflow:auto}
+.tt{position:fixed;pointer-events:none;background:var(--surface);border:1px solid var(--border);
+  border-radius:8px;padding:8px 10px;font-size:12px;box-shadow:0 6px 20px rgba(0,0,0,.14);opacity:0;
+  transition:opacity .1s;z-index:50;max-width:280px}
+.tt.on{opacity:1}
+.tt .t{font-weight:650;margin-bottom:3px}
+
+/* drill-down */
+.clickable{cursor:pointer}
+td.drill{cursor:pointer;text-decoration:underline;text-decoration-color:var(--axis);text-underline-offset:3px}
+td.drill:hover{text-decoration-color:var(--s1)}
+tr.drillrow{cursor:pointer}
+.hint{font-size:11px;color:var(--muted);font-weight:400}
+#overlay{position:fixed;inset:0;background:rgba(0,0,0,.34);opacity:0;pointer-events:none;
+  transition:opacity .15s;z-index:60}
+#overlay.on{opacity:1;pointer-events:auto}
+#drawer{position:fixed;top:0;right:0;height:100%;width:min(1080px,96vw);background:var(--surface);
+  border-left:1px solid var(--border);box-shadow:-8px 0 34px rgba(0,0,0,.18);z-index:61;
+  transform:translateX(100%);transition:transform .18s ease;display:flex;flex-direction:column}
+#drawer.on{transform:translateX(0)}
+#drawer .dhead{padding:18px 22px 12px;border-bottom:1px solid var(--border);display:flex;
+  justify-content:space-between;align-items:flex-start;gap:16px}
+#drawer .dhead h2{margin:0 0 3px;font-size:16px}
+#drawer .dhead .sub{color:var(--ink2);font-size:12px}
+#drawer .dbody{overflow:auto;padding:0 22px 26px}
+#drawer .dfoot{padding:10px 22px;border-top:1px solid var(--border);font-size:12px;color:var(--muted)}
+#drawer table{margin-top:6px}
+#drawer th{position:sticky;top:0;background:var(--surface);z-index:1}
+.kv{font-size:11px;color:var(--muted);margin-top:2px}
+.flag{display:inline-block;font-size:11px;padding:0 6px;border-radius:4px;margin-right:4px;
+  border:1px solid var(--critical);color:var(--ink)}
+.flag.warn{border-color:var(--warning)}
+a.ns{font-size:11px;color:var(--ink2);white-space:nowrap}
+#t_drill td:first-child{white-space:nowrap}
+.foot{margin-top:14px;font-size:12px;color:var(--ink2)}
+.foot ul{margin:6px 0 0;padding-left:18px}
+.foot li{margin-bottom:4px}
+details summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--ink2)}
+.split{display:grid;grid-template-columns:1.6fr 1fr;gap:14px}
+@media (max-width:900px){.herorow,.split{grid-template-columns:1fr}}
+@media print{.controls,.filterbar{display:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top">
+  <div>
+    <h1>Supportdashboard – Noresca Admin</h1>
+    <p class="sub">Ärendestyrning för supportansvarig · källa: NetSuite konto 57409, <code>supportcase</code></p>
+    <p class="sub" style="margin-top:4px">Ögonblicksbild <strong id="snapdate"></strong> · <span id="scope"></span></p>
+  </div>
+  <div class="controls">
+    <label class="pill" for="fkund">Kund
+      <select id="fkund" style="border:none;background:none;padding:0"></select>
+    </label>
+    <label class="pill" for="fsla">Avtal
+      <select id="fsla" style="border:none;background:none;padding:0">
+        <option value="">Alla</option><option>Noresca basic</option><option>No SLA</option>
+      </select>
+    </label>
+    <label class="pill" for="ftyp">Typ
+      <select id="ftyp" style="border:none;background:none;padding:0"></select>
+    </label>
+    <label class="pill" for="fgrupp">Arbetsart
+      <select id="fgrupp" style="border:none;background:none;padding:0">
+        <option value="">Alla</option><option>Development</option><option>Support</option>
+      </select>
+    </label>
+    <button id="theme" class="ghost" title="Växla ljust/mörkt läge">Mörkt läge</button>
+  </div>
+</header>
+
+<section class="section">
+  <div class="head"><h2>1. Läget just nu</h2>
+    <span class="note">Öppen backlog = alla ärenden som inte har status Closed eller Solved.</span></div>
+  <div class="herorow">
+    <div class="card hero">
+      <div class="label">Öppen backlog</div>
+      <div class="value" id="heroval">–</div>
+      <div class="meta" id="heromet"></div>
+    </div>
+    <div class="tiles" id="tiles"></div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="head"><h2>2. Åtgärdslista – avvikelser i hanteringen</h2>
+    <span class="note">Varje ruta är ett tecken på att något inte fungerar i flödet, inte på hur svårt ärendet är. Klicka för ärendelistan.</span></div>
+  <div class="avvik" id="avvik"></div>
+</section>
+
+<section class="section">
+  <div class="head"><h2>3. Backlogens sammansättning</h2>
+    <span class="note">Speglar aktuellt filter. Klicka på en stapel för att öppna ärendelistan bakom siffran.</span></div>
+  <div class="chartgrid">
+    <div class="card"><h3>Öppna ärenden per status</h3><div id="c_status"></div></div>
+    <div class="card"><h3>Åldersfördelning – dagar sedan ärendet skapades</h3><div id="c_alder"></div></div>
+    <div class="card"><h3>Öppna ärenden per severity</h3><div id="c_sev"></div></div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="head"><h2>4. Inflöde mot utflöde</h2>
+    <div class="controls">
+      <button class="ghost" data-range="12" aria-pressed="true">12 mån</button>
+      <button class="ghost" data-range="24" aria-pressed="false">24 mån</button>
+    </div></div>
+  <div class="card">
+    <div class="legend">
+      <span class="key"><span class="swatch" style="background:var(--s1)"></span>Inkomna ärenden</span>
+      <span class="key"><span class="swatch" style="background:var(--s4)"></span>Nådde In Progress</span>
+      <span class="key"><span class="swatch" style="background:var(--s5)"></span>Nådde Solution proposal</span>
+      <span class="key"><span class="swatch" style="background:var(--s3)"></span>Nådde Solved</span>
+      <span class="key"><span class="swatch" style="background:var(--s2)"></span>Stängda ärenden (Closed)</span>
+    </div>
+    <div id="c_trend"></div>
+    <p class="sub" style="margin-top:8px" id="trendnote"></p>
+    <p class="sub" style="margin-top:4px">De tre mittersta linjerna visar när ärenden <em>passerade</em> en milstolpe (MS1/MS2/MS3-datumen) – inte om de är stängda. Ett ärende kan nå Solved och synas på den linjen långt innan det formellt får status Closed och syns på den orange linjen; bara Closed räknas som helt avslutat.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="head"><h2>5. Nyckelord</h2>
+    <span class="note">Ärendets registrerade sökord (Noresca Case Keywords), hela ärendestocken – följer samma filter som ovan. Observera: "ämnesområde" (vänster, överordnat nyckelord) och "kategori" (höger, ett eget fält på nyckelordet) är två olika klassificeringar och kan råka heta likadant, t.ex. "Custom/Utveckling" – de mäter inte samma sak.</span></div>
+  <div class="chartgrid">
+    <div class="card">
+      <h3>Vanligaste ämnesområdena (överordnade nyckelord)</h3>
+      <div id="c_nyckelord_grupp"></div>
+      <ul class="kwlist" id="nyckelord_detaljer"></ul>
+    </div>
+    <div class="card">
+      <h3>Vanligaste enskilda nyckelorden</h3>
+      <span class="hint">Utan gruppering på överordnat nyckelord</span>
+      <div id="c_nyckelord_topp"></div>
+    </div>
+    <div class="card">
+      <h3>Vanligaste kategorierna (satta på nyckelorden)</h3>
+      <span class="hint">Kategori-fältet på nyckelordet (custrecord_nic_na_key_cat) – inte ärendets eget Typ-fält</span>
+      <div id="c_nyckelord_kat"></div>
+    </div>
+  </div>
+  <p class="sub" style="margin-top:8px" id="nyckelordnote"></p>
+</section>
+
+<section class="section">
+  <div class="head"><h2>6. Kundbild</h2>
+    <span class="note">Takt = inkomna ärenden per månad senaste 3 månaderna, jämfört med 12-månaderssnittet. Understrukna tal går att klicka på.</span></div>
+  <div class="card"><div class="scroll"><table id="t_kund">
+    <thead><tr>
+      <th data-k="kund">Kund</th><th data-k="sla">Avtal</th><th data-k="sdm">SDM</th>
+      <th class="num" data-k="oppna">Öppna</th><th class="num" data-k="utan_svar">Utan 1:a svar</th>
+      <th class="num" data-k="tysta30">Orörda &gt;30 d</th><th class="num" data-k="aldsta">Äldsta (d)</th>
+      <th class="num" data-k="takt3">Takt/mån</th><th class="num" data-k="snitt_mnd">Snitt 12 mån</th>
+      <th data-k="takt3">Trend</th>
+    </tr></thead><tbody></tbody></table></div></div>
+</section>
+
+<section class="section">
+  <div class="split">
+    <div>
+      <div class="head"><h2>7. Ärendelista</h2>
+        <div class="controls">
+          <input type="search" id="fsok" placeholder="Sök titel, kund, handläggare…" style="min-width:220px">
+          <select id="fstatus"><option value="">Alla statusar</option></select>
+        </div></div>
+      <div class="card"><div class="scroll"><table id="t_case">
+        <thead><tr>
+          <th data-k="nr">Nr</th><th data-k="titel">Ärende</th><th data-k="kund">Kund</th>
+          <th data-k="status">Status</th><th data-k="handlaggare">Handläggare</th>
+          <th class="num" data-k="alder">Ålder (d)</th><th class="num" data-k="tyst_dagar">Tyst (d)</th>
+          <th data-k="sev">Severity</th>
+        </tr></thead><tbody></tbody></table></div></div>
+    </div>
+    <div>
+      <div class="head"><h2>8. Belastning per handläggare</h2><span class="hint">Klicka på en rad</span></div>
+      <div class="card"><div class="scroll"><table id="t_handl">
+        <thead><tr><th data-k="namn">Handläggare</th><th class="num" data-k="antal">Öppna</th>
+        <th class="num" data-k="tysta">Varav orörda &gt;30 d</th><th>Fördelning</th></tr></thead><tbody></tbody></table></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="card foot">
+    <details open>
+      <summary>Så läses måtten – definitioner, antaganden och förbehåll</summary>
+      <ul>
+        <li><strong>Öppen backlog</strong> = status ≠ Closed och ≠ Solved. Solved räknas som avslutat arbete även om ärendet formellt stängs senare; ändras definitionen ändras samtliga tal på sidan.</li>
+        <li><strong>Tid till första svar</strong> bygger på fältet <code>supportfirstreply</code>, som lagras som datum utan klockslag. Måttet kan därför bara skilja på hela dygn – "samma dag" betyder inte "inom en timme". Vill ni styra på svarstid i timmar krävs klockslag i datamodellen.</li>
+        <li><strong>Ledtid</strong> mäts som <code>timeelapsed</code> (tid från skapande till stängning) och redovisas som median och 90:e percentil. Medelvärde undviks – enstaka ärenden som legat i över ett år drar isär snittet.</li>
+        <li><strong>No SLA</strong> betyder att kunden saknar Noresca Admin-avtal. Det är ett avtalsfaktum. Konsekvensen – att inga svarstider mäts eller larmar för den kunden – är en separat sak och bör bedömas som sådan.</li>
+        <li><strong>Severity</strong> används i praktiken: av ärendena senaste tolv månaderna ligger 27 % på nivå 2 (hög påverkan) och bara 28 % på default-nivån 4. Fältet går alltså att styra på, till skillnad från vad som tidigare antagits.</li>
+        <li><strong>Prioritet</strong> är däremot tomt i drygt 60 % av alla ärenden. Prioritetsbaserad styrning är därför inte möjlig i dag utan att först täppa till registreringen.</li>
+        <li><strong>Bakåtdaterade ärenden.</strong> Vissa ärenden har <code>startdate</code> tidigare än <code>datecreated</code>, dvs. de har efterregistrerats. Ålder räknas här från <code>datecreated</code>, som är den tidpunkt då ärendet faktiskt fanns i systemet.</li>
+        <li><strong>Avtalsnivå och SDM</strong> är hämtade från ett representativt ärende per kund och antas gälla hela kunden. Kunder utan öppna ärenden saknar avtalsuppgift här.</li>
+        <li><strong>Typfiltret</strong> (kontrollraden högst upp) filtrerar på ärendets kategori – Request, Incident, Problem, Error correction, Change eller Support. Det slår igenom på hero-talet, avvikelselistan, diagrammen, kundtabellen, ärendelistan, handläggarlistan och trenddiagrammet.</li>
+        <li><strong>Arbetsart-filtret</strong> grupperar samma kategorifält i två: kategorin Change räknas som <em>Development</em>, alla andra kategorier – inklusive tomt kategorifält – räknas som <em>Support</em>. Ett grovt mått, tänkt för att snabbt skilja utvecklingsarbete från löpande support, inte en exakt klassificering. Slår igenom överallt, inklusive trenddiagrammet.</li>
+        <li><strong>Trenddiagrammet</strong> räknar in- och utflöde från hela ärendestocken (inte bara öppen backlog), filtrerat på samma kund/avtal/typ/arbetsart som resten av sidan – till skillnad från kundtabellen, ärendelistan och handläggarlistan som bara visar öppna ärenden.</li>
+        <li><strong>Stängda ärenden</strong> bygger på <code>enddate</code> och sätts i praktiken bara när ärendet faktiskt får status Closed – inte vid Solved eller någon annan mellanstatus. Det är den enda av de fem linjerna som betyder "helt klart, inget mer att göra".</li>
+        <li><strong>In Progress-/Solution proposal-/Solved-linjerna</strong> bygger på tre separata milstolpsdatum (<code>custevent_nic_na_case_sla_ms1_date</code>, <code>_ms2_date</code>, <code>_ms3_date</code>) som sätts när ärendet passerar den statusen – oavsett vad dess status är idag, och oavsett om det senare öppnas igen. De är tre egna flöden, inte en delmängd av Stängda ärenden: ett ärende kan synas på Solved-linjen långt innan (eller helt utan att) det syns på linjen för Stängda ärenden. Innan de här tre milstolpsfälten togs i bruk (2026-09-18) byggde Solved-linjen på <code>enddate</code>, som bara sätts vid faktisk stängning – därför låg den tidigare versionen av linjen platt på noll.</li>
+        <li><strong>Ögonblicksbild.</strong> Sidan innehåller data uttagen vid tidpunkten överst och uppdateras inte av sig själv.</li>
+      </ul>
+    </details>
+  </div>
+</section>
+
+<div class="tt" id="tt"></div>
+<div id="overlay"></div>
+<aside id="drawer" role="dialog" aria-modal="true" aria-labelledby="dtitle">
+  <div class="dhead">
+    <div><h2 id="dtitle"></h2><div class="sub" id="dsub"></div></div>
+    <button id="dclose" title="Stäng (Esc)">Stäng</button>
+  </div>
+  <div class="dbody"><table id="t_drill">
+    <thead><tr>
+      <th data-k="nr">Nr</th><th data-k="titel">Ärende</th><th data-k="kund">Kund</th>
+      <th data-k="status">Status</th><th data-k="handlaggare">Handläggare</th>
+      <th data-k="sev">Severity</th>
+      <th class="num" data-k="alder">Ålder (d)</th><th class="num" data-k="svarsdygn">1:a svar</th>
+      <th class="num" data-k="tyst_dagar">Tyst (d)</th>
+    </tr></thead><tbody></tbody></table></div>
+  <div class="dfoot" id="dfoot"></div>
+</aside>
+</div>
+<script>window.__DATA__=/*__DATA__*/{}/*__DATA__SLUT__*/;</script>
+<script>
+const DATA = window.__DATA__;
+const TODAY = DATA.snapshot;
+const $ = s => document.querySelector(s);
+const el = (t,a={},...k)=>{const n=document.createElementNS(a.svg?'http://www.w3.org/2000/svg':'http://www.w3.org/1999/xhtml',t);
+  for(const[p,v] of Object.entries(a)){if(p==='svg')continue;if(p==='text')n.textContent=v;else n.setAttribute(p,v);}
+  k.flat().forEach(c=>c&&n.appendChild(c));return n;};
+const S = (t,a={},...k)=>el(t,{...a,svg:1},...k);
+const fmt = n => (n==null?'–':n.toLocaleString('sv-SE'));
+
+/* ---------- filter ---------- */
+let F = {kund:'', sla:'', typ:'', grupp:'', status:'', sok:'', range:12};
+function openCases(){
+  return DATA.oppna.filter(o =>
+    (!F.kund || o.kund===F.kund) && (!F.sla || o.sla===F.sla) && (!F.typ || o.kategori===F.typ) &&
+    (!F.grupp || o.grupp===F.grupp));
+}
+function caseRows(){
+  const q=F.sok.toLowerCase();
+  return openCases().filter(o => (!F.status || o.status===F.status) &&
+    (!q || (o.titel+' '+o.kund+' '+o.handlaggare+' '+o.nr).toLowerCase().includes(q)));
+}
+
+/* ---------- tooltip ---------- */
+const tt=$('#tt');
+function showTT(e,html){tt.innerHTML=html;tt.classList.add('on');
+  const r=tt.getBoundingClientRect();
+  let x=e.clientX+14,y=e.clientY+14;
+  if(x+r.width>innerWidth-8)x=e.clientX-r.width-14;
+  if(y+r.height>innerHeight-8)y=e.clientY-r.height-14;
+  tt.style.left=x+'px';tt.style.top=y+'px';}
+function hideTT(){tt.classList.remove('on');}
+function bindTT(node,html){node.addEventListener('mousemove',e=>showTT(e,html));
+  node.addEventListener('mouseleave',hideTT);}
+
+/* ---------- KPI ---------- */
+function renderTiles(){
+  const oc=openCases(), k=DATA.kpi, filtered=!!(F.kund||F.sla||F.typ||F.grupp);
+  $('#heroval').textContent=fmt(oc.length);
+  $('#heromet').textContent = filtered
+    ? `av ${fmt(DATA.oppna.length)} öppna totalt · äldsta ${fmt(Math.max(...oc.map(o=>o.alder),0))} dagar`
+    : `äldsta ärendet ${fmt(k.aldsta_dagar)} dagar · ${fmt(k.tysta30)} orörda i över 30 dagar`;
+  const utanSvar=oc.filter(o=>!o.forstasvar).length;
+  const tysta=oc.filter(o=>(o.tyst_dagar||0)>30).length;
+  const nya=oc.filter(o=>o.alder<=7).length;
+  const t=[
+    {l:'Inkomna senaste 7 dagarna',v:k.nya7,d:`stängda ${k.stangda7} · netto ${k.netto7>0?'+':''}${k.netto7}`,
+     dir:k.netto7>0?'up':'down',glob:1},
+    {l:'Inkomna senaste 30 dagarna',v:k.nya30,d:`stängda ${k.stangda30} · netto ${k.netto30>0?'+':''}${k.netto30}`,
+     dir:k.netto30>0?'up':'down',glob:1},
+    {l:'Öppna utan registrerat första svar',v:utanSvar,d:'kunden saknar bekräftelse'},
+    {l:'Öppna helt orörda i över 30 dagar',v:tysta,d:`${oc.length?Math.round(100*tysta/oc.length):0} % av backloggen`},
+    {l:'Nyinkomna i backloggen (≤7 d)',v:nya,d:'det som fortfarande är färskt'},
+    {l:'Första svar samma dag',v:k.samma_dag_pct+' %',d:`${k.inom_1dag_pct} % inom ett dygn · 90 dagar`,glob:1},
+    {l:'Ledtid till stängning, median',v:k.median_ledtid_d+' d',d:`90:e percentilen ${k.p90_ledtid_d} d · 90 dagar`,glob:1}
+  ];
+  $('#tiles').replaceChildren(...t.map(x=>{
+    const n=el('div',{class:'tile'},
+      el('div',{class:'label',text:x.l}),
+      el('div',{class:'value',text:typeof x.v==='number'?fmt(x.v):x.v}),
+      el('div',{class:'delta '+(x.dir||''),text:x.d}));
+    if(x.glob&&filtered)n.querySelector('.delta').textContent=x.d+' · hela stocken';
+    return n;}));
+}
+
+/* ---------- avvikelser ---------- */
+const AVVIK=[
+ {n:'Öppna ärenden utan registrerat första svar',d:'Inget första svar är registrerat. Kunden kan ha väntat utan bekräftelse.',
+  niva:'critical',f:o=>!o.forstasvar},
+ {n:'Status New i mer än ett dygn',d:'Obearbetat ärende som inte triagerats.',niva:'critical',f:o=>o.statusid===1&&o.alder>1},
+ {n:'Väntar på kund utan kontakt i över 14 dagar',d:'Ingen meddelandeaktivitet på två veckor – påminnelse saknas.',
+  niva:'warning',f:o=>o.statusid===6&&(o.tyst_dagar||0)>14},
+ {n:'Helt orörda i över 30 dagar',d:'Inget meddelande i någon riktning på över en månad, oavsett status.',
+  niva:'warning',f:o=>(o.tyst_dagar==null?999:o.tyst_dagar)>30},
+ {n:'Lösningsförslag eller Change Backlog äldre än 60 dagar',
+  d:'Förslag som inte är beställda. De ligger kvar och räknas som öppna ärenden.',niva:'serious',
+  f:o=>(o.statusid===8||o.statusid===11)&&o.alder>60},
+ {n:'Severity 1–2 öppen i mer än 14 dagar',d:'Verklig affärspåverkan som dragit ut i tiden.',niva:'serious',
+  f:o=>(o.sevid||4)<=2&&o.alder>14},
+ {n:'Öppna ärenden hos kund utan avtal',d:'No SLA – ingen svarstid mäts eller larmar, och tidsåtgången är inte avtalad.',
+  niva:'warning',f:o=>o.sla==='No SLA'},
+ {n:'Prioritet ej satt',d:'Tomt prioritetsfält gör prioritetsstyrning omöjlig.',niva:'warning',f:o=>o.prio==='(tom)'}
+];
+const ICON={critical:'●',serious:'▲',warning:'■'};
+/* ---------- export (CSV/Excel) ---------- */
+function exportCols(){
+  return [
+    {label:'Nr', get:o=>o.nr},
+    {label:'Ärende', get:o=>o.titel},
+    {label:'Kund', get:o=>o.kund},
+    {label:'Status', get:o=>o.status},
+    {label:'Handläggare', get:o=>o.handlaggare},
+    {label:'Severity', get:o=>o.sev},
+    {label:'Kategori', get:o=>o.kategori},
+    {label:'Ålder (d)', get:o=>o.alder},
+    {label:'1:a svar', get:o=>o.forstasvar?(o.svarsdygn===0?'samma dag':o.svarsdygn+' d'):'saknas'},
+    {label:'Tyst (d)', get:o=>o.tyst_dagar},
+    {label:'Avtal', get:o=>o.sla},
+    {label:'SDM', get:o=>o.sdm},
+    {label:'Skapad', get:o=>o.skapad},
+    {label:'NetSuite', get:o=>NSURL(o.id)},
+  ];
+}
+function slugg(namn){
+  return namn.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'') || 'export';
+}
+function csvCell(v){
+  const s = v==null ? '' : String(v);
+  return /[;"\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+}
+function toCSV(rows,cols){
+  const head = cols.map(c=>csvCell(c.label)).join(';');
+  const body = rows.map(r=>cols.map(c=>csvCell(c.get(r))).join(';')).join('\n');
+  return '﻿'+head+'\n'+body;
+}
+function xlsCell(v){
+  return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function toXLS(rows,cols,titel){
+  const head='<tr>'+cols.map(c=>'<th>'+xlsCell(c.label)+'</th>').join('')+'</tr>';
+  const body=rows.map(r=>'<tr>'+cols.map(c=>'<td>'+xlsCell(c.get(r))+'</td>').join('')+'</tr>').join('');
+  return `<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8">`+
+    `<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>`+
+    `<x:Name>${xlsCell(titel).slice(0,31)}</x:Name><x:WorksheetOptions><x:DisplayGridlines/>`+
+    `</x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->`+
+    `</head><body><table border="1">${head}${body}</table></body></html>`;
+}
+function download(filnamn,innehall,mime){
+  const blob=new Blob([innehall],{type:mime});
+  const url=URL.createObjectURL(blob);
+  const a=el('a',{href:url,download:filnamn});
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function exportCases(rows,format,namn){
+  if(!rows.length) return;
+  const bas=`Noresca_${slugg(namn)}_${DATA.snapshot}`;
+  if(format==='csv') download(bas+'.csv', toCSV(rows,exportCols()), 'text/csv;charset=utf-8');
+  else download(bas+'.xls', toXLS(rows,exportCols(),namn), 'application/vnd.ms-excel');
+}
+
+function renderAvvik(){
+  const oc=openCases();
+  $('#avvik').replaceChildren(...AVVIK.map((a,i)=>{
+    const hits=oc.filter(a.f);
+    const box=el('div',{class:'av'},
+      el('div',{class:'top'},
+        el('span',{class:'dot',style:`background:var(--${a.niva})`}),
+        el('span',{class:'name',text:a.n}),
+        el('span',{class:'n',text:fmt(hits.length)})),
+      el('div',{class:'desc',text:a.d}));
+    if(hits.length){
+      const b=el('button',{class:'link',text:`Visa ${hits.length} ärenden`});
+      b.onclick=()=>openDrill(a.n,a.d,hits);
+      const csvBtn=el('button',{class:'link',text:'Exportera CSV'});
+      csvBtn.onclick=e=>{e.stopPropagation();exportCases(hits,'csv',a.n);};
+      const xlsBtn=el('button',{class:'link',text:'Exportera Excel'});
+      xlsBtn.onclick=e=>{e.stopPropagation();exportCases(hits,'xls',a.n);};
+      const rad=el('div',{style:'display:flex;gap:10px;flex-wrap:wrap'},b,csvBtn,xlsBtn);
+      box.append(rad);
+      box.classList.add('clickable');
+      box.onclick=e=>{if(![b,csvBtn,xlsBtn].includes(e.target))openDrill(a.n,a.d,hits);};
+    }
+    return box;}));
+}
+
+/* ---------- drill-down ---------- */
+const NSURL=id=>`https://57409.app.netsuite.com/app/crm/support/supportcase.nl?id=${id}`;
+function flags(o){
+  const f=[];
+  if(!o.forstasvar)f.push(['Inget första svar','']);
+  if((o.tyst_dagar||0)>30)f.push(['Orörd '+o.tyst_dagar+' d','warn']);
+  if(o.statusid===1&&o.alder>1)f.push(['Otriagerad','']);
+  if(o.sla==='No SLA')f.push(['No SLA','warn']);
+  if(o.prio==='(tom)')f.push(['Prio saknas','warn']);
+  return f;
+}
+function openDrill(title,sub,cases){
+  $('#dtitle').textContent=title;
+  $('#dsub').textContent=sub;
+  const tb=document.querySelector('#t_drill tbody');
+  tsort('t_drill',cases,'alder',rs=>tb.replaceChildren(...rs.map(o=>el('tr',{},
+    el('td',{},el('div',{text:o.nr}),el('a',{class:'ns',href:NSURL(o.id),target:'_blank',
+      rel:'noopener',text:'NetSuite ↗'})),
+    el('td',{},
+      el('div',{text:o.titel}),
+      el('div',{class:'kv',text:`${o.kategori} · prio ${o.prio} · skapad ${o.skapad} · SDM ${o.sdm} · ${o.sla}`}),
+      el('div',{class:'kv',text:`Senaste meddelande ${o.senaste_msg||'–'}`+
+        (o.senaste_kundmsg?` · senast från kund ${o.senaste_kundmsg}`:' · inget kundmeddelande registrerat')}),
+      el('div',{style:'margin-top:4px'},...flags(o).map(([t,c])=>el('span',{class:'flag '+c,text:t})))),
+    el('td',{text:o.kund}),
+    el('td',{text:o.status}),
+    el('td',{text:o.handlaggare}),
+    el('td',{text:o.sev}),
+    el('td',{class:'num',text:fmt(o.alder)}),
+    el('td',{class:'num',text:o.forstasvar?(o.svarsdygn===0?'samma dag':o.svarsdygn+' d'):'saknas'}),
+    el('td',{class:'num'+((o.tyst_dagar||0)>30?' warnnum':''),text:fmt(o.tyst_dagar)})))));
+  const utan=cases.filter(o=>!o.forstasvar).length, tyst=cases.filter(o=>(o.tyst_dagar||0)>30).length;
+  $('#dfoot').textContent=`${cases.length} ärenden · ${utan} utan registrerat första svar · ${tyst} orörda i över 30 dagar`+
+    (cases.length?` · äldsta ${Math.max(...cases.map(o=>o.alder))} dagar`:'');
+  $('#drawer').classList.add('on'); $('#overlay').classList.add('on');
+  document.querySelector('#drawer .dbody').scrollTop=0;
+}
+function closeDrill(){$('#drawer').classList.remove('on');$('#overlay').classList.remove('on');hideTT();}
+
+/* ---------- charts ---------- */
+const SEQ=['var(--seq-250)','var(--seq-350)','var(--seq-450)','var(--seq-550)','var(--seq-650)'];
+function hbar(host,rows,color,onclick,enhet){
+  enhet=enhet||'öppna ärenden';
+  const W=440,rowH=30,pad={l:150,r:56,t:6,b:6},H=pad.t+pad.b+rows.length*rowH;
+  const max=Math.max(1,...rows.map(r=>r.antal));
+  const g=[S('svg',{viewBox:`0 0 ${W} ${H}`,role:'img'})];
+  const svg=g[0];
+  rows.forEach((r,i)=>{
+    const y=pad.t+i*rowH, bh=16, w=(W-pad.l-pad.r)*r.antal/max;
+    svg.appendChild(S('text',{x:pad.l-10,y:y+bh/2+4,'text-anchor':'end',class:'tick',text:r.namn}));
+    const rect=S('rect',{x:pad.l,y,width:Math.max(2,w),height:bh,rx:4,fill:color||'var(--s1)'});
+    // square at baseline
+    svg.appendChild(rect);
+    svg.appendChild(S('rect',{x:pad.l,y,width:4,height:bh,fill:color||'var(--s1)'}));
+    svg.appendChild(S('text',{x:pad.l+Math.max(2,w)+8,y:y+bh/2+4,class:'dlabel',text:r.antal}));
+    const hit=S('rect',{x:0,y:y-4,width:W,height:rowH-2,fill:'transparent',class:'clickable'});
+    bindTT(hit,`<div class="t">${r.namn}</div>${r.antal} ${enhet}<br><span style="color:var(--muted)">Klicka för ärendelistan</span>`);
+    if(onclick)hit.addEventListener('click',()=>onclick(r));
+    svg.appendChild(hit);
+  });
+  svg.appendChild(S('line',{x1:pad.l,y1:pad.t,x2:pad.l,y2:H-pad.b,class:'baseline'}));
+  host.replaceChildren(svg);
+}
+function columns(host,rows,colors,onclick){
+  const W=460,H=210,pad={l:34,r:14,t:16,b:44};
+  const max=Math.max(1,...rows.map(r=>r.antal));
+  const svg=S('svg',{viewBox:`0 0 ${W} ${H}`,role:'img'});
+  const iw=(W-pad.l-pad.r)/rows.length;
+  [0,.5,1].forEach(f=>{const y=pad.t+(H-pad.t-pad.b)*(1-f);
+    svg.appendChild(S('line',{x1:pad.l,x2:W-pad.r,y1:y,y2:y,class:'gridline'}));
+    svg.appendChild(S('text',{x:pad.l-8,y:y+4,'text-anchor':'end',class:'tick',text:Math.round(max*f)}));});
+  rows.forEach((r,i)=>{
+    const bw=Math.min(24,iw-14), x=pad.l+i*iw+(iw-bw)/2;
+    const h=(H-pad.t-pad.b)*r.antal/max, y=H-pad.b-h;
+    const rect=S('rect',{x,y,width:bw,height:Math.max(2,h),rx:4,fill:(colors&&colors[i])||'var(--s1)'});
+    svg.appendChild(rect);
+    svg.appendChild(S('rect',{x,y:H-pad.b-4,width:bw,height:4,fill:(colors&&colors[i])||'var(--s1)'}));
+    svg.appendChild(S('text',{x:x+bw/2,y:y-6,'text-anchor':'middle',class:'dlabel',text:r.antal}));
+    r.namn.split(' ').forEach((w,j,arr)=>svg.appendChild(
+      S('text',{x:pad.l+i*iw+iw/2,y:H-pad.b+16+j*12,'text-anchor':'middle',class:'tick',text:w})));
+    const hit=S('rect',{x:pad.l+i*iw,y:pad.t,width:iw,height:H-pad.t-pad.b+30,fill:'transparent',class:'clickable'});
+    bindTT(hit,`<div class="t">${r.namn}</div>${r.antal} öppna ärenden<br><span style="color:var(--muted)">Klicka för ärendelistan</span>`);
+    if(onclick)hit.addEventListener('click',()=>onclick(r));
+    svg.appendChild(hit);
+  });
+  svg.appendChild(S('line',{x1:pad.l,x2:W-pad.r,y1:H-pad.b,y2:H-pad.b,class:'baseline'}));
+  host.replaceChildren(svg);
+}
+function filteredAlla(){
+  return DATA.alla.filter(o =>
+    (!F.kund || o.kund===F.kund) && (!F.sla || o.sla===F.sla) && (!F.typ || o.kategori===F.typ) &&
+    (!F.grupp || o.grupp===F.grupp));
+}
+function monthKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+function monthsBack(count){
+  const end=new Date(DATA.snapshot+'T00:00:00'), list=[];
+  for(let i=count-1;i>=0;i--) list.push(monthKey(new Date(end.getFullYear(),end.getMonth()-i,1)));
+  return list;
+}
+// MS1/MS2/MS3-datumen (custevent_nic_na_case_sla_ms1_date/_ms2_date/_ms3_date)
+// markerar när ett ärende PASSERADE en milstolpe (In Progress / Solution
+// proposal / Solved) - oavsett vad ärendets status är idag. De är alltså
+// egna, oberoende linjer - inte en delmängd av "Stängda ärenden", som bygger
+// på enddate och bara sätts när ärendet faktiskt får status Closed. Ett
+// ärende kan nå Solved (ms3) långt innan det stängs formellt (eller aldrig
+// stängs formellt); se anmärkningen under diagrammet.
+function bucketMonths(rows,months){
+  const inC={}, outC={}, ms1C={}, ms2C={}, ms3C={};
+  rows.forEach(o=>{
+    const a=(o.datecreated||'').slice(0,7), b=(o.enddate||'').slice(0,7);
+    const m1=(o.ms1||'').slice(0,7), m2=(o.ms2||'').slice(0,7), m3=(o.ms3||'').slice(0,7);
+    if(a) inC[a]=(inC[a]||0)+1;
+    if(b) outC[b]=(outC[b]||0)+1;
+    if(m1) ms1C[m1]=(ms1C[m1]||0)+1;
+    if(m2) ms2C[m2]=(ms2C[m2]||0)+1;
+    if(m3) ms3C[m3]=(ms3C[m3]||0)+1;
+  });
+  return months.map(mm=>({manad:mm,in:inC[mm]||0,ut:outC[mm]||0,
+    ms1:ms1C[mm]||0,ms2:ms2C[mm]||0,ms3:ms3C[mm]||0}));
+}
+function trend(){
+  const rows = bucketMonths(filteredAlla(), monthsBack(F.range));
+  const W=1120,H=300,pad={l:44,r:96,t:18,b:46};
+  const max=Math.max(4,...rows.map(r=>Math.max(r.in,r.ut,r.ms1,r.ms2,r.ms3)));
+  const svg=S('svg',{viewBox:`0 0 ${W} ${H}`,role:'img'});
+  const X=i=>pad.l+(W-pad.l-pad.r)*(rows.length<2?0.5:i/(rows.length-1));
+  const Y=v=>pad.t+(H-pad.t-pad.b)*(1-v/max);
+  const step=Math.max(1,Math.ceil(max/4/5)*5);
+  for(let v=0;v<=max;v+=step){
+    svg.appendChild(S('line',{x1:pad.l,x2:W-pad.r,y1:Y(v),y2:Y(v),class:'gridline'}));
+    svg.appendChild(S('text',{x:pad.l-8,y:Y(v)+4,'text-anchor':'end',class:'tick',text:v}));}
+  const LABEL={in:'Inkomna ',ut:'Stängda ',ms1:'In Progress ',ms2:'Sol.förslag ',ms3:'Solved '};
+  // Etikett-y-positioner kan råka hamna på varandra när flera linjer slutar
+  // nära samma värde - separera dem vertikalt efter sortering på slutvärde.
+  const last=rows.length-1;
+  const order=['ms1','ms2','in','ut','ms3'].filter(k=>true)
+    .map(key=>({key,v:rows[last][key]})).sort((a,b)=>a.v-b.v);
+  const placed=[]; const MINGAP=13;
+  order.forEach(o=>{
+    let y=Y(o.v);
+    placed.forEach(p=>{ if(Math.abs(p-y)<MINGAP) y=p+MINGAP; });
+    placed.push(y); o.y=y;
+  });
+  const labelY={}; order.forEach(o=>labelY[o.key]=o.y);
+  const line=(key,color)=>{
+    const d=rows.map((r,i)=>`${i?'L':'M'}${X(i).toFixed(1)},${Y(r[key]).toFixed(1)}`).join(' ');
+    svg.appendChild(S('path',{d,fill:'none',stroke:color,'stroke-width':2,'stroke-linejoin':'round','stroke-linecap':'round'}));
+    svg.appendChild(S('circle',{cx:X(last),cy:Y(rows[last][key]),r:4.5,fill:color,stroke:'var(--surface)','stroke-width':2}));
+    svg.appendChild(S('text',{x:X(last)+10,y:labelY[key]+4,class:'dlabel',
+      text:LABEL[key]+rows[last][key]}));};
+  line('in','var(--s1)'); line('ms1','var(--s4)'); line('ms2','var(--s5)');
+  line('ms3','var(--s3)'); line('ut','var(--s2)');
+  rows.forEach((r,i)=>{
+    if(rows.length<=12||i%2===0)
+      svg.appendChild(S('text',{x:X(i),y:H-pad.b+18,'text-anchor':'middle',class:'tick',text:r.manad.slice(2)}));
+    const hit=S('rect',{x:X(i)-(W-pad.l-pad.r)/rows.length/2,y:pad.t,
+      width:(W-pad.l-pad.r)/rows.length,height:H-pad.t-pad.b,fill:'transparent'});
+    hit.addEventListener('mouseenter',()=>{cross.setAttribute('x1',X(i));cross.setAttribute('x2',X(i));cross.style.opacity=1;});
+    hit.addEventListener('mouseleave',()=>{cross.style.opacity=0;});
+    bindTT(hit,`<div class="t">${r.manad}</div>Inkomna ${r.in}<br>`+
+      `Nådde In Progress ${r.ms1} · Solution proposal ${r.ms2} · Solved ${r.ms3}<br>`+
+      `Stängda (Closed) ${r.ut}<br>Netto ${r.in-r.ut>0?'+':''}${r.in-r.ut}`);
+    svg.appendChild(hit);});
+  const cross=S('line',{y1:pad.t,y2:H-pad.b,class:'baseline',style:'opacity:0'});
+  svg.appendChild(cross);
+  svg.appendChild(S('line',{x1:pad.l,x2:W-pad.r,y1:H-pad.b,y2:H-pad.b,class:'baseline'}));
+  $('#c_trend').replaceChildren(svg);
+  const net=rows.reduce((a,r)=>a+r.in-r.ut,0);
+  const filtnamn=[F.kund,F.sla,F.typ,F.grupp].filter(Boolean).join(' · ');
+  $('#trendnote').textContent = (filtnamn?filtnamn+': ':'Hela ärendestocken: ')+
+    `netto ${net>0?'+':''}${net} ärenden under perioden. Positivt netto betyder att backloggen växer. `+
+    `Innevarande månad (${rows[rows.length-1].manad}) är ofullständig och ska inte läsas som en nedgång.`;
+}
+
+/* ---------- nyckelord ---------- */
+// Ett nyckelord utan eget överordnat nyckelord grupperas som sitt eget
+// överordnade nyckelord (self-parent) – se DATA.nyckelord (bygg_dashboard.py).
+function kwParent(id){
+  const k=DATA.nyckelord[id];
+  if(!k) return null;
+  return (k.forlder!=null) ? k.forlder : Number(id);
+}
+function kwNamn(id){ return (DATA.nyckelord[id]||{}).namn || ('#'+id); }
+function grupperaNyckelord(rows){
+  const grupper={};
+  rows.forEach(o=>{
+    const kws=o.kw||[];
+    const seddaGrupper=new Set();
+    kws.forEach(kid=>{
+      const pid=kwParent(kid);
+      if(pid==null) return;
+      if(!grupper[pid]) grupper[pid]={id:pid,cases:[],barn:{}};
+      if(!seddaGrupper.has(pid)){ grupper[pid].cases.push(o); seddaGrupper.add(pid); }
+      grupper[pid].barn[kid]=(grupper[pid].barn[kid]||0)+1;
+    });
+  });
+  return grupper;
+}
+function topparNyckelord(rows,n){
+  const cnt={};
+  rows.forEach(o=>(o.kw||[]).forEach(kid=>{cnt[kid]=(cnt[kid]||0)+1;}));
+  return Object.entries(cnt).map(([kid,antal])=>({id:+kid,namn:kwNamn(kid),antal}))
+    .sort((a,b)=>b.antal-a.antal || a.namn.localeCompare(b.namn,'sv')).slice(0,n);
+}
+function breakdownText(g){
+  const barn=Object.entries(g.barn).sort((a,b)=>b[1]-a[1]).map(([kid,antal])=>`${kwNamn(kid)} (${antal})`).join(', ');
+  return `${g.cases.length} ärenden, hela ärendestocken. Underliggande nyckelord: ${barn}`;
+}
+// Nyckelordets EGNA kategori (custrecord_nic_na_key_cat) – inte ärendets Typ-fält
+// och inte samma sak som det överordnade nyckelordet ovan, även om etiketterna
+// för de två klassificeringarna råkar heta likadant för vissa grupper (t.ex.
+// "Custom/Utveckling", "Approval/Workflow"). Se DATA.nyckelord_kategorier.
+function kwKategori(id){
+  const k=DATA.nyckelord[id];
+  return (k && k.kategori!=null) ? k.kategori : null;
+}
+function katNamn(kat){ return (DATA.nyckelord_kategorier||{})[kat] || ('#'+kat); }
+function grupperaKategori(rows){
+  const grupper={};
+  rows.forEach(o=>{
+    const kws=o.kw||[];
+    const seddaKat=new Set();
+    kws.forEach(kid=>{
+      const kat=kwKategori(kid);
+      if(kat==null) return;
+      if(!grupper[kat]) grupper[kat]={id:kat,cases:[],barn:{}};
+      if(!seddaKat.has(kat)){ grupper[kat].cases.push(o); seddaKat.add(kat); }
+      grupper[kat].barn[kid]=(grupper[kat].barn[kid]||0)+1;
+    });
+  });
+  return grupper;
+}
+function breakdownTextKat(g){
+  const barn=Object.entries(g.barn).sort((a,b)=>b[1]-a[1]).map(([kid,antal])=>`${kwNamn(kid)} (${antal})`).join(', ');
+  return `${g.cases.length} ärenden, hela ärendestocken. Nyckelord i denna kategori: ${barn}`;
+}
+function renderNyckelordKategori(){
+  const rows=filteredAlla();
+  const grupper=grupperaKategori(rows);
+  const topKat=Object.values(grupper).sort((a,b)=>b.cases.length-a.cases.length).slice(0,5);
+  hbar($('#c_nyckelord_kat'), topKat.map(g=>({id:g.id,namn:katNamn(g.id),antal:g.cases.length})), 'var(--s3)',
+    r=>{const g=topKat.find(x=>x.id===r.id); openDrill('Kategori: '+r.namn, breakdownTextKat(g), g.cases);},
+    'ärenden (hela stocken)');
+}
+function renderNyckelord(){
+  const rows=filteredAlla();
+  const grupper=grupperaNyckelord(rows);
+  const topGrupper=Object.values(grupper).sort((a,b)=>b.cases.length-a.cases.length).slice(0,5);
+  hbar($('#c_nyckelord_grupp'), topGrupper.map(g=>({id:g.id,namn:kwNamn(g.id),antal:g.cases.length})), 'var(--s1)',
+    r=>{const g=topGrupper.find(x=>x.id===r.id); openDrill('Nyckelord: '+r.namn, breakdownText(g), g.cases);},
+    'ärenden (hela stocken)');
+  $('#nyckelord_detaljer').replaceChildren(...topGrupper.map(g=>{
+    const barn=Object.entries(g.barn).sort((a,b)=>b[1]-a[1])
+      .map(([kid,antal])=>`${kwNamn(kid)} (${antal})`).join(', ');
+    return el('li',{},el('b',{text:kwNamn(g.id)}),el('span',{text:` – ${g.cases.length} ärenden. Nyckelord: ${barn}`}));
+  }));
+  const toppKw=topparNyckelord(rows,5);
+  hbar($('#c_nyckelord_topp'), toppKw, 'var(--s2)',
+    r=>openDrill('Nyckelord: '+r.namn,
+      `${r.antal} ärenden taggade med "${r.namn}", hela ärendestocken, utan gruppering på överordnat nyckelord.`,
+      rows.filter(o=>(o.kw||[]).includes(r.id))),
+    'ärenden (hela stocken)');
+  const harKw=rows.filter(o=>(o.kw||[]).length).length;
+  const filtnamn=[F.kund,F.sla,F.typ,F.grupp].filter(Boolean).join(' · ');
+  $('#nyckelordnote').textContent = (filtnamn?filtnamn+': ':'Hela ärendestocken: ')+
+    `${harKw} av ${rows.length} ärenden har minst ett registrerat nyckelord. `+
+    `Ett ärende kan ha flera nyckelord och räknas då i varje grupp/nyckelord det matchar.`;
+}
+
+/* ---------- tables ---------- */
+function drillCell(v,cls,fn){
+  const td=el('td',{class:'num'+(cls||'')+(fn?' drill':''),text:fmt(v)});
+  if(fn)td.onclick=e=>fn(e);
+  return td;
+}
+function tsort(id,rows,def,render){
+  let key=def,dir=-1;
+  const th=[...document.querySelectorAll('#'+id+' th')];
+  const draw=()=>{const r=[...rows].sort((a,b)=>{const x=a[key],y=b[key];
+    return (typeof x==='number'?x-y:String(x).localeCompare(String(y),'sv'))*dir;});
+    render(r);};
+  th.forEach(h=>h.onclick=()=>{const k=h.dataset.k;if(!k)return;
+    if(k===key)dir*=-1;else{key=k;dir=(typeof rows[0]?.[k]==='number')?-1:1;}draw();});
+  draw();
+}
+function renderKund(){
+  const oc=openCases(), names=new Set(oc.map(o=>o.kund));
+  const rows=DATA.kunder.filter(k=>names.has(k.kund)).map(k=>{
+    const mine=oc.filter(o=>o.kund===k.kund);
+    return {...k,oppna:mine.length,utan_svar:mine.filter(o=>!o.forstasvar).length,
+      tysta30:mine.filter(o=>(o.tyst_dagar||0)>30).length,
+      aldsta:Math.max(...mine.map(o=>o.alder))};});
+  const max=Math.max(1,...rows.map(r=>r.oppna));
+  const tb=document.querySelector('#t_kund tbody');
+  tsort('t_kund',rows,'oppna',rs=>tb.replaceChildren(...rs.map(k=>{
+    const upp=k.snitt_mnd>0?k.takt3/k.snitt_mnd:0;
+    const mine=oc.filter(o=>o.kund===k.kund);
+    const tr=el('tr',{},
+      el('td',{text:k.kund}),
+      el('td',{},el('span',{class:'tag'+(k.sla==='No SLA'?' nosla':''),text:k.sla})),
+      el('td',{text:k.sdm}),
+      drillCell(k.oppna,'',()=>openDrill(k.kund+' – öppna ärenden',
+        `${k.sla} · SDM ${k.sdm} · ${k.oppna} öppna ärenden`,mine)),
+      drillCell(k.utan_svar,k.utan_svar?' warnnum':'',()=>openDrill(k.kund+' – utan registrerat första svar',
+        'Ärenden där inget första svar finns registrerat',mine.filter(o=>!o.forstasvar))),
+      drillCell(k.tysta30,k.tysta30?' warnnum':'',()=>openDrill(k.kund+' – orörda i över 30 dagar',
+        'Inget meddelande i någon riktning på över en månad',mine.filter(o=>(o.tyst_dagar||0)>30))),
+      drillCell(k.aldsta,'',()=>openDrill(k.kund+' – äldsta ärendena',
+        'Sorterat på ålder, äldst först',mine)),
+      el('td',{class:'num',text:k.takt3.toLocaleString('sv-SE')}),
+      el('td',{class:'num',text:k.snitt_mnd.toLocaleString('sv-SE')}),
+      el('td',{class:'bar-cell'},el('span',{class:'b',style:`width:${Math.round(90*k.oppna/max)}px`})));
+    bindTT(tr,`<div class="t">${k.kund}</div>${k.oppna} öppna · ${k.in12} inkomna senaste 12 mån<br>`+
+      (upp>=1.5?'Inflödet är '+upp.toFixed(1)+' gånger sitt eget 12-månaderssnitt – tydlig topp.'
+              :'Inflödet ligger i linje med kundens normalläge.'));
+    return tr;})));
+}
+function renderCases(){
+  const tb=document.querySelector('#t_case tbody');
+  tsort('t_case',caseRows(),'alder',rs=>tb.replaceChildren(...rs.map(o=>{const tr=el('tr',{class:'drillrow'},
+    el('td',{text:o.nr}),
+    el('td',{},el('div',{text:o.titel}),
+      el('div',{style:'font-size:11px;color:var(--muted)',
+        text:`${o.kategori} · prio ${o.prio} · skapad ${o.skapad}`+(o.forstasvar?'':' · inget första svar')})),
+    el('td',{text:o.kund}),
+    el('td',{text:o.status}),
+    el('td',{text:o.handlaggare}),
+    el('td',{class:'num',text:fmt(o.alder)}),
+    el('td',{class:'num'+((o.tyst_dagar||0)>30?' warnnum':''),text:fmt(o.tyst_dagar)}),
+    el('td',{text:o.sev}));
+    tr.onclick=()=>openDrill(`Ärende ${o.nr} – ${o.kund}`,o.titel,[o]);
+    return tr;})));
+}
+function renderHandl(){
+  const oc=openCases(), m={};
+  oc.forEach(o=>{m[o.handlaggare]=m[o.handlaggare]||{namn:o.handlaggare,antal:0,tysta:0};
+    m[o.handlaggare].antal++; if((o.tyst_dagar||0)>30)m[o.handlaggare].tysta++;});
+  const rows=Object.values(m), max=Math.max(1,...rows.map(r=>r.antal));
+  const tb=document.querySelector('#t_handl tbody');
+  tsort('t_handl',rows,'antal',rs=>tb.replaceChildren(...rs.map(h=>{
+    const mine=oc.filter(o=>o.handlaggare===h.namn);
+    const tr=el('tr',{class:'drillrow'},
+      el('td',{text:h.namn}),
+      drillCell(h.antal,'',null),
+      drillCell(h.tysta,h.tysta?' warnnum':'',e=>{e.stopPropagation();
+        openDrill(h.namn+' – orörda i över 30 dagar','Ärenden utan meddelandeaktivitet på över en månad',
+          mine.filter(o=>(o.tyst_dagar||0)>30));}),
+      el('td',{class:'bar-cell'},el('span',{class:'b',style:`width:${Math.round(90*h.antal/max)}px`})));
+    tr.onclick=()=>openDrill(h.namn+' – öppna ärenden',
+      `${h.antal} öppna ärenden · ${h.tysta} orörda i över 30 dagar`,mine);
+    bindTT(tr,`<div class="t">${h.namn}</div>Klicka för ärendelistan`);
+    return tr;})));
+}
+
+/* ---------- render all ---------- */
+function agg(list,key){const c={};list.forEach(o=>c[o[key]]=(c[o[key]]||0)+1);
+  return Object.entries(c).map(([namn,antal])=>({namn,antal})).sort((a,b)=>b.antal-a.antal);}
+const AGE=['0–7 dagar','8–30 dagar','31–90 dagar','91–180 dagar','över 180 dagar'];
+function bucket(d){return d<=7?AGE[0]:d<=30?AGE[1]:d<=90?AGE[2]:d<=180?AGE[3]:AGE[4];}
+function renderAll(){
+  const oc=openCases();
+  renderTiles(); renderAvvik();
+  const scope = (F.kund||F.sla||F.typ||F.grupp) ? ` · filter: ${[F.kund,F.sla,F.typ,F.grupp].filter(Boolean).join(' · ')}` : '';
+  hbar($('#c_status'),agg(oc,'status'),null,
+    r=>openDrill('Status: '+r.namn,`Öppna ärenden med status ${r.namn}${scope}`,oc.filter(o=>o.status===r.namn)));
+  const ac=AGE.map(b=>({namn:b,antal:oc.filter(o=>bucket(o.alder)===b).length}));
+  columns($('#c_alder'),ac,SEQ,
+    r=>openDrill('Ålder: '+r.namn,`Öppna ärenden skapade för ${r.namn} sedan${scope}`,oc.filter(o=>bucket(o.alder)===r.namn)));
+  hbar($('#c_sev'),agg(oc,'sev').sort((a,b)=>a.namn.localeCompare(b.namn,'sv')),null,
+    r=>openDrill('Severity: '+r.namn,`Öppna ärenden med severity ${r.namn}${scope}`,oc.filter(o=>o.sev===r.namn)));
+  trend(); renderNyckelord(); renderNyckelordKategori(); renderKund(); renderCases(); renderHandl();
+  $('#scope').textContent = (F.kund||F.sla||F.typ||F.grupp)
+    ? `filtrerat: ${[F.kund,F.sla,F.typ,F.grupp].filter(Boolean).join(' · ')}`
+    : `hela ärendestocken · ${fmt(DATA.totalt_arenden)} registrerade ärenden sedan ${DATA.forsta_arende}`;
+}
+
+/* ---------- init ---------- */
+$('#snapdate').textContent=TODAY;
+const kunder=[...new Set(DATA.oppna.map(o=>o.kund))].sort((a,b)=>a.localeCompare(b,'sv'));
+$('#fkund').replaceChildren(el('option',{value:'',text:'Alla kunder'}),
+  ...kunder.map(k=>el('option',{value:k,text:k})));
+const statusar=[...new Set(DATA.oppna.map(o=>o.status))].sort();
+$('#fstatus').replaceChildren(el('option',{value:'',text:'Alla statusar'}),
+  ...statusar.map(s=>el('option',{value:s,text:s})));
+const typer=[...new Set(DATA.oppna.map(o=>o.kategori))].sort((a,b)=>a.localeCompare(b,'sv'));
+$('#ftyp').replaceChildren(el('option',{value:'',text:'Alla typer'}),
+  ...typer.map(t=>el('option',{value:t,text:t})));
+$('#fkund').onchange=e=>{F.kund=e.target.value;renderAll();};
+$('#fsla').onchange=e=>{F.sla=e.target.value;renderAll();};
+$('#ftyp').onchange=e=>{F.typ=e.target.value;renderAll();};
+$('#fgrupp').onchange=e=>{F.grupp=e.target.value;renderAll();};
+$('#fstatus').onchange=e=>{F.status=e.target.value;renderCases();};
+$('#fsok').oninput=e=>{F.sok=e.target.value;renderCases();};
+document.querySelectorAll('[data-range]').forEach(b=>b.onclick=()=>{
+  F.range=+b.dataset.range;
+  document.querySelectorAll('[data-range]').forEach(x=>x.setAttribute('aria-pressed',x===b));
+  trend();});
+$('#theme').onclick=()=>{const d=document.documentElement.getAttribute('data-theme')==='dark';
+  document.documentElement.setAttribute('data-theme',d?'light':'dark');
+  $('#theme').textContent=d?'Mörkt läge':'Ljust läge';renderAll();};
+if(matchMedia('(prefers-color-scheme: dark)').matches){
+  document.documentElement.setAttribute('data-theme','dark');$('#theme').textContent='Ljust läge';}
+$('#dclose').onclick=closeDrill;
+$('#overlay').onclick=closeDrill;
+addEventListener('keydown',e=>{if(e.key==='Escape')closeDrill();});
+renderAll();
+</script>
+</body>
+</html>

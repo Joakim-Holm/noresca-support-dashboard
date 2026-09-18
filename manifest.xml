@@ -1,0 +1,4 @@
+<manifest projecttype="ACCOUNTCUSTOMIZATION">
+  <projectname>supportdashboard-netsuite</projectname>
+  <frameworkversion>1.0</frameworkversion>
+</manifest>

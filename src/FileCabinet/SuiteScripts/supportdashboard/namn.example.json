@@ -1,0 +1,17 @@
+{
+  "kunder": {
+    "123": "Exempel Kund AB",
+    "456": "Annan Kund AB"
+  },
+  "anstallda": {
+    "789": "Support Person"
+  },
+  "sla": {
+    "123": "Guld",
+    "456": "No SLA"
+  },
+  "sdm": {
+    "123": "Anna Andersson",
+    "456": "Erik Eriksson"
+  }
+}
