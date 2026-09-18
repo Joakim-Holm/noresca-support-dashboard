@@ -179,15 +179,62 @@ function (query, file, log, runtime, url) {
         return file.load({ id: MALL_PATH }).folder;
     }
 
+    // Felsökningsinstrumentering (2026-09-18): "Uppdatera dashboard" visade
+    // konsekvent en färsk sida direkt i sitt eget svar, men den sparade
+    // filen (LIVE_PATH) visade sig ALDRIG faktiskt ändras när den lästes
+    // tillbaka i en ny flik/session - bekräftat upprepade gånger direkt mot
+    // File Cabinet (filens lastmodifieddate stod still trots flera lyckade-
+    // verkande uppdateringar). Koden nedan gav aldrig ett synligt fel, vilket
+    // utesluter en enkel kastad exception som orsak - annars hade
+    // felsida(e) visats i stället för dashboarden. Loggar nu varje steg
+    // (inklusive governance-förbrukning) för att fånga EXAKT vad som händer
+    // vid sparningen nästa gång "Uppdatera dashboard" körs.
+    function loggaGovernance(etikett) {
+        try {
+            var kvar = runtime.getCurrentScript().getRemainingUsage();
+            log.audit({ title: 'supportdashboard: governance', details: etikett + ' - kvar: ' + kvar + ' units' });
+        } catch (e) {
+            log.error({ title: 'supportdashboard: governance-loggning misslyckades', details: (e && e.message) || e });
+        }
+    }
+
     function sparaGenereradFil(html) {
+        loggaGovernance('före sparning, html-längd ' + html.length);
         try {
             var befintlig = file.load({ id: LIVE_PATH });
+            log.audit({
+                title: 'supportdashboard: fil laddad för uppdatering',
+                details: 'id=' + befintlig.id + ' storlek innan=' + befintlig.size
+            });
             befintlig.contents = html;
-            befintlig.save();
+            var sparatId = befintlig.save();
+            loggaGovernance('efter lyckad befintlig.save()');
+            log.audit({
+                title: 'supportdashboard: sparning (uppdatering) klar',
+                details: 'save() returnerade id=' + sparatId + ' (samma fil-id förväntas: ' + LIVE_PATH + ')'
+            });
+            // Läs tillbaka DIREKT, i samma exekvering, för att se om
+            // storleken faktiskt ändrades - annars ser vi det inte förrän
+            // en helt ny sidladdning, vilket är precis det som varit svårt
+            // att lita på.
+            try {
+                var kontroll = file.load({ id: LIVE_PATH });
+                log.audit({
+                    title: 'supportdashboard: kontrolläsning direkt efter save()',
+                    details: 'storlek efter=' + kontroll.size + ' (förväntad ny längd=' + html.length + ')'
+                });
+            } catch (e2) {
+                log.error({ title: 'supportdashboard: kontrolläsning efter save() misslyckades', details: (e2 && e2.message) || e2 });
+            }
             return;
         } catch (e) {
             // Filen finns inte sedan tidigare (första körningen) – skapa den.
+            log.error({
+                title: 'supportdashboard: befintlig.save() kastade fel - faller tillbaka på file.create()',
+                details: 'namn=' + (e && e.name) + ' meddelande=' + (e && e.message)
+            });
         }
+        loggaGovernance('före file.create()-fallback');
         var ny = file.create({
             name: LIVE_NAMN,
             fileType: file.Type.HTMLDOC,
@@ -195,7 +242,12 @@ function (query, file, log, runtime, url) {
             folder: hittaMappId()
         });
         ny.isOnline = false; // åtkomst styrs av Suitelet-deploymentets roller, inte en publik länk
-        ny.save();
+        var nyttId = ny.save();
+        loggaGovernance('efter file.create()-fallback');
+        log.audit({
+            title: 'supportdashboard: ny fil skapad (fallback)',
+            details: 'nytt id=' + nyttId + ' - OBS: om detta händer varje gång finns troligen flera filer med samma namn i mappen'
+        });
     }
 
     // =======================================================================
