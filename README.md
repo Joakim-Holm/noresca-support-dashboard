@@ -223,6 +223,34 @@ Fokusvyerna är fullt reaktiva mot filtren: ändrar man Kund/Avtal/Typ/
 Arbetsart i headern medan en fokusvy är öppen uppdateras innehållet precis
 som i den vanliga dashboarden, inklusive drill-ärendelistan.
 
+**Ett andra, djupare timingproblem (löst 2026-09-18):** även efter
+fragment-fixen ovan visade live-test mot skarpa dashboarden att
+`location.hash` inte var tillförlitligt ifyllt vid en vanlig
+sidnavigering – inte bara i det tidiga skriptet i `<head>` (avsett bara som
+ett bästa-försök mot att hela dashboarden hinner blinka till), utan även i
+det sista skriptet längst ner i `<body>`. Adressfältet visade rätt URL
+(`#vy=trend` etc.) direkt, och exakt samma kod fungerade när den kördes
+manuellt någon sekund senare i webbläsarkonsolen – men vid själva
+sidladdningen läste båda ställena fragmentet som tomt. Grundorsaken i
+NetSuites egen sidladdningskedja (troligen någon form av
+domän-/sessionsredirect som tillfälligt tappar fragmentet och sätter
+tillbaka det igen strax efter) är inte klarlagd, men beteendet är
+konsekvent reproducerbart. Lösningen i `tillampaFokusvy()` (i
+`dashboard_mall.html`, direkt före `renderAll()`): försök läsa fragmentet
+igen vid `hashchange` och vid flera tidpunkter (50/150/400/900/1 800 ms)
+tills ett värde hittas, i stället för att lita på en enda avläsning oavsett
+hur sen. Lyckas det sent, för drill-vyn, anropas `renderVyDrill()` direkt
+(eftersom den första `renderAll()`-körningen redan kan ha hunnit köra utan
+`vyDrillMetric` satt).
+
+**Kom också ihåg (separat, återkommande fallgrop):** en SDF-deploy av
+`dashboard_mall.html` uppdaterar bara filen i File Cabinet – den triggar
+INTE om en ny ögonblicksbild. Har "Uppdatera dashboard" körts FÖRE en
+deploy syns inte deployens ändringar förrän knappen klickas igen EFTER.
+Misstänker man att en fix inte syns trots lyckad deploy, kontrollera i
+första hand om knappen klickats efter den senaste deployen – inte bara om
+deployen själv lyckades.
+
 ### Klickbara siffror i KPI-portleten
 
 `supportdashboard_portlet.js`s fyra rutor (Öppen backlog, Utan första svar,
