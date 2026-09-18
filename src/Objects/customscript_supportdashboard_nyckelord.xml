@@ -1,0 +1,14 @@
+<portlet scriptid="customscript_supportdashboard_nyckelord">
+    <name>Supportdashboard Nyckelord</name>
+    <notifyowner>T</notifyowner>
+    <portlettype>HTML</portlettype>
+    <scriptfile>[/SuiteScripts/supportdashboard/supportdashboard_portlet_nyckelord.js]</scriptfile>
+    <scriptdeployments>
+        <scriptdeployment scriptid="customdeploy_supportdashboard_nyckelord">
+            <isdeployed>T</isdeployed>
+            <loglevel>AUDIT</loglevel>
+            <status>RELEASED</status>
+            <title>Supportdashboard Nyckelord</title>
+        </scriptdeployment>
+    </scriptdeployments>
+</portlet>

@@ -15,14 +15,23 @@ dashboard**, i stället för att vara en ögonblicksbild.
 ## Innehåll
 
 ```
-manifest.xml                                     Projektmetadata (SDF)
-deploy.xml                                        Vad som ska laddas upp och i vilken ordning
+suitecloud.config.js                             Krävs av SuiteCloud CLI/VS Code-tillägget – pekar ut src/ som projektmapp
 src/
+├── manifest.xml                                  Projektmetadata (SDF)
+├── deploy.xml                                     Vad som ska laddas upp och i vilken ordning
 ├── Objects/
-│   └── customscript_supportdashboard.xml         Script- och deployment-posten (Suitelet)
+│   ├── customscript_supportdashboard.xml              Script- och deployment-posten (Suitelet)
+│   ├── customscript_supportdashboard_kpi.xml          Script- och deployment-posten (KPI-portlet, se nedan)
+│   ├── customscript_supportdashboard_nyckelord.xml    Script- och deployment-posten (Nyckelord-portlet, se nedan)
+│   ├── customscript_supportdashboard_kundbild.xml     Script- och deployment-posten (Kundbild-portlet, se nedan)
+│   └── customscript_supportdashboard_trend10.xml      Script- och deployment-posten (Trend 10d-portlet, se nedan)
 └── FileCabinet/SuiteScripts/supportdashboard/
-    ├── supportdashboard_suitelet.js               Själva scriptet (aggregering + HTML-rendering)
-    ├── dashboard_mall.html                         HTML/CSS/JS-mallen scriptet fyller med data
+    ├── supportdashboard_suitelet.js               Suiteleten (aggregering + HTML-rendering, hela dashboarden)
+    ├── supportdashboard_portlet.js                 Kompakt KPI-portlet (sektion 4) för NetSuite-dashboarden
+    ├── supportdashboard_portlet_nyckelord.js       Kompakt Nyckelord-portlet (sektion 5), topp-3 i alla tre nedbrytningar
+    ├── supportdashboard_portlet_kundbild.js        Kompakt Kundbild-portlet (sektion 6), topp 5 kunder efter öppen backlog, länkar till fokusvy
+    ├── supportdashboard_portlet_trend10.js         Kompakt Trend-portlet (sektion 4), dagsgranularitet senaste 10 dagarna, länkar till fokusvy
+    ├── dashboard_mall.html                         HTML/CSS/JS-mallen Suiteleten fyller med data – inkl. fokusvy (se nedan)
     ├── namn.example.json                           Exempel/mall för namn.json (se varning nedan)
     └── namn.json                                   Skapas lokalt av dig – se "Kund-/handläggarnamn"
 docs/
@@ -84,6 +93,148 @@ medvetet, eftersom vi inte kände till era exakta rollnamn härifrån. Öppna
 Script Deployment-posten i NetSuite (Customization → Scripting → Script
 Deployments) och lägg till **Administrator** samt supportteamets roll under
 fliken **Audience**, annars kan ingen öppna sidan.
+
+## KPI-portlet på NetSuite-dashboarden
+
+`supportdashboard_portlet.js` är ett andra script i samma projekt – en
+**Portlet** (skild scripttyp från Suitelet) som visar fyra nyckeltal (öppen
+backlog, utan första svar, tysta > 30 dagar, netto 30 dagar) direkt i en ruta
+på NetSuite-dashboarden, med en knapp vidare till den fulla dashboarden.
+
+Den är medvetet mycket lättare än Suiteleten: ingen namn-/nyckelordsuppslag,
+ingen HTML-rendering av hela sidan – bara en riktad SuiteQL-fråga och en liten
+HTML-sträng. Resultatet cachas 15 minuter (`N/cache`) eftersom en portlet
+räknas om varje gång någon öppnar sin dashboard; utan cache hade samma fråga
+kunnat köras dussintals gånger per dag. Siffrorna är därför upp till 15
+minuter gamla – för en färsk siffra just nu, öppna den fulla dashboarden och
+klicka **Uppdatera dashboard**.
+
+`suitecloud project:deploy` skapar Script- och Deployment-posten för
+portleten precis som för Suiteleten, men **att faktiskt lägga portleten på en
+dashboard är ett användarsteg som inte går att göra via SDF**:
+
+1. Öppna valfri Dashboard i NetSuite → **Personalize** (uppe till höger).
+2. Under **Standard Content**, dra **Custom Portlet** till dashboarden.
+3. Klicka **Set Up** i den nya rutan → välj **Supportdashboard KPI** i
+   listan **Source** (det är samma namn som scriptet fick i XML:et) → Save.
+4. Precis som Suiteletens deployment saknar denna sitt Audience/roller från
+   XML:et av samma skäl som ovan – lägg till rollerna manuellt på
+   `customdeploy_supportdashboard_kpi` innan andra i teamet kan välja den i
+   steg 3.
+
+Portleten är en egen, kompletterande vy – den ersätter inte Suiteleten, och
+den delar ingen kod med `dashboard_mall.html` (den bygger sin egen lilla
+HTML-sträng i stället för att återanvända mallen, som är byggd för en hel
+sida, inte en dashboard-ruta).
+
+## Nyckelord- och Kundbild-portletarna
+
+Samma mönster som KPI-portleten ovan, men för sektion 5 (Nyckelord) och
+sektion 6 (Kundbild) i huvuddashboarden. Tre separata portletar i stället för
+en gemensam, eftersom varje NetSuite-dashboardruta bara har plats för en
+avgränsad vy och de tre sektionerna svarar på olika frågor.
+
+**`supportdashboard_portlet_nyckelord.js`** visar tre kompakta topplistor
+sida vid sida – Ämnesområden, Nyckelord, Kategorier – men **topp 3** i var
+och en (huvuddashboarden visar topp 5) för att alla tre ska få plats i en
+och samma ruta. Räknar över **hela ärendestocken**, inte bara öppen backlog,
+precis som sektion 5 i huvuddashboarden – och speglar samma
+klassificeringsregler: ämnesområde = nyckelordets överordnade nyckelord med
+self-parent-regeln (`kwParent()` i `dashboard_mall.html`), kategori är ett
+separat fält på nyckelordet (`custrecord_nic_na_key_cat`), inte samma
+gruppering trots att ett par etiketter råkar heta likadant (se README-avsnittet
+"Nyckelordsanalys" i Cowork-skillen `supportdashboard` för samma caveat i
+detalj).
+
+**`supportdashboard_portlet_kundbild.js`** visar de fem kunder som just nu
+har flest **öppna** ärenden (samma STANGDA=[5,9]-definition som resten av
+projektet), med avtalsnivå per kund och en tydlig markering av kunder utan
+Noresca Admin-avtal ("No SLA"). Namn och avtalsnivå läses från samma
+`namn.json` som Suiteleten – ingen egen entity-uppslagning, för att hålla
+portleten billig. Knappen längst ner öppnar **inte** hela dashboarden utan
+en fokusvy av sektion 6 – se "Fokusvyer" nedan.
+
+Båda cachas 15 minuter (`N/cache`) av samma skäl som KPI-portleten.
+
+Driftsättning och aktivering är identiskt med KPI-portleten ovan:
+
+1. `suitecloud project:deploy` skapar Script- och Deployment-posterna
+   (`customdeploy_supportdashboard_nyckelord` respektive
+   `customdeploy_supportdashboard_kundbild`).
+2. I NetSuite: Personalize Dashboard → dra **Custom Portlet** till
+   dashboarden → Set Up → välj **Supportdashboard Nyckelord** respektive
+   **Supportdashboard Kundbild** i listan **Source** → Save. Upprepa för
+   varje portlet du vill ha synlig.
+3. Lägg till Audience/roller manuellt på de två nya deploymenten
+   (Customization → Scripting → Script Deployments), av samma skäl som
+   Suiteleten och KPI-portleten – XML:et sätter medvetet ingen roll.
+
+## Trend-portleten (10 dagar) och fokusvyer i eget fönster
+
+Två saker hör ihop här: en fjärde portlet som visar en kort trendglimt, och
+ett sätt att öppna en enskild sektion av huvuddashboarden – med samma filter
+som i headern – i ett eget fönster i stället för hela dashboarden.
+
+### Fokusvyer (`?vy=kundbild` / `?vy=trend`)
+
+Suiteleten (`supportdashboard_suitelet.js`) och mallen (`dashboard_mall.html`)
+har fått stöd för att öppnas med en extra URL-parameter, `?vy=`, som visar
+bara **en** sektion i stället för hela dashboarden – men med exakt samma
+filterrad (Kund, Avtal, Typ, Arbetsart) som huvuddashboardens header, och
+exakt samma renderingslogik (samma `renderAll()`/`trend()`/`renderKund()`
+som annars). Inget nytt script eller ny data krävs – det är samma cachade
+`supportdashboard_live.html`-fil som redan serveras, bara med CSS-regler i
+mallen (`:root[data-vy="…"]`) som döljer övriga sektioner klientsidan innan
+sidan hinner måla upp dem. Suiteletens `onRequest` bryr sig bara om
+`action=refresh`/POST, så `?vy=…` passerar rakt igenom cachen utan någon
+serverändring.
+
+Giltiga värden:
+
+- `?vy=kundbild` – visar bara sektion 6 (Kundbild).
+- `?vy=trend` – visar bara sektion 4 (Inflöde mot utflöde, med sin vanliga
+  12/24-månadersväxlare).
+
+Ett okänt eller saknat värde ger hela dashboarden som vanligt (dagens
+beteende, oförändrat). En liten länk "← Visa hela dashboarden" läggs till
+automatiskt i fokusvyn.
+
+### `supportdashboard_portlet_trend10.js`
+
+Speglar sektion 4, men med **dagsgranularitet över de senaste 10 dagarna** i
+stället för sektion 4:s månadsvisa 12/24-månadersvy – tänkt som en snabb
+"vad hände nyligen"-glimt, inte en ersättning för den riktiga trenden.
+Samma fem flöden (Inkomna, In Progress, Solution proposal, Solved, Stängda)
+över **hela ärendestocken**, samma definitioner som sektion 4. Diagrammet är
+en helt statisk, förberäknad SVG utan inline-JS – flera Custom Portlets kan
+ligga på samma NetSuite-dashboardsida samtidigt, och den här portleten
+undviker medvetet globala JS-namn som skulle kunna krocka med andra
+portletar.
+
+Knappen längst ner öppnar sektion 4 i sin fulla (månadsvisa) form som
+fokusvy (`?vy=trend`) i ett eget fönster – inte en 10-dagarsversion av den
+fulla vyn.
+
+Cachas 15 minuter, precis som övriga portletar.
+
+### Driftsättning – alla fyra portletar
+
+Identiskt mönster för samtliga (KPI, Nyckelord, Kundbild, Trend 10d):
+
+1. `suitecloud project:deploy` skapar Script- och Deployment-posterna,
+   inklusive den nya `customdeploy_supportdashboard_trend10`.
+2. I NetSuite: Personalize Dashboard → dra **Custom Portlet** till
+   dashboarden → Set Up → välj **Supportdashboard Trend 10d** i listan
+   **Source** → Save.
+3. Lägg till Audience/roller manuellt på `customdeploy_supportdashboard_trend10`
+   (Customization → Scripting → Script Deployments), av samma skäl som de
+   andra deploymenten – XML:et sätter medvetet ingen roll.
+
+Länkarna från Kundbild- och Trend 10d-portletarna öppnas i en ny flik/fönster
+(`target="_blank"`) via webbläsarens standardbeteende – vill ni i stället ha
+ett riktigt, mindre popup-fönster (utan adressfält/flikrad) krävs ett litet
+JS-anrop (`window.open(url,'_blank','width=…,height=…')`) i stället för en
+vanlig länk; hör av er om ni vill ha det.
 
 ## Löpande drift
 

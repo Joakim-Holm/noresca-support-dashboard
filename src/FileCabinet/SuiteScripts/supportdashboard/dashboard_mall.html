@@ -13,6 +13,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Supportdashboard – Noresca Admin</title>
+<script>
+// Fokusvy: en portlet kan länka hit med ?vy=kundbild eller ?vy=trend för att
+// bara visa en enskild sektion (med samma filterrad som hela dashboarden)
+// i ett eget fönster/flik. Sätts som attribut på <html> INNAN body hinner
+// målas, så att CSS-reglerna nedan (`:root[data-vy=...]`) döljer övriga
+// sektioner utan att man hinner se hela dashboarden blinka till först.
+(function(){
+  var vy = new URLSearchParams(location.search).get('vy');
+  if (vy) document.documentElement.setAttribute('data-vy', vy);
+})();
+</script>
 <style>
 :root{
   color-scheme: light;
@@ -152,6 +163,17 @@ details summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--ink2)}
 .split{display:grid;grid-template-columns:1.6fr 1fr;gap:14px}
 @media (max-width:900px){.herorow,.split{grid-template-columns:1fr}}
 @media print{.controls,.filterbar{display:none}}
+
+/* Fokusvy (se skriptet i <head>) – döljer alla sektioner utom den som
+   efterfrågas plus header/filterraden, som alltid är kvar. */
+:root[data-vy="kundbild"] #sek1, :root[data-vy="kundbild"] #sek2,
+:root[data-vy="kundbild"] #sek3, :root[data-vy="kundbild"] #sek5,
+:root[data-vy="kundbild"] #sek78, :root[data-vy="kundbild"] #sek9 { display:none }
+
+:root[data-vy="trend"] #sek1, :root[data-vy="trend"] #sek2,
+:root[data-vy="trend"] #sek3, :root[data-vy="trend"] #sek5,
+:root[data-vy="trend"] #sek6, :root[data-vy="trend"] #sek78,
+:root[data-vy="trend"] #sek9 { display:none }
 </style>
 </head>
 <body>
@@ -183,7 +205,7 @@ details summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--ink2)}
   </div>
 </header>
 
-<section class="section">
+<section class="section" id="sek1">
   <div class="head"><h2>1. Läget just nu</h2>
     <span class="note">Öppen backlog = alla ärenden som inte har status Closed eller Solved.</span></div>
   <div class="herorow">
@@ -196,13 +218,13 @@ details summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--ink2)}
   </div>
 </section>
 
-<section class="section">
+<section class="section" id="sek2">
   <div class="head"><h2>2. Åtgärdslista – avvikelser i hanteringen</h2>
     <span class="note">Varje ruta är ett tecken på att något inte fungerar i flödet, inte på hur svårt ärendet är. Klicka för ärendelistan.</span></div>
   <div class="avvik" id="avvik"></div>
 </section>
 
-<section class="section">
+<section class="section" id="sek3">
   <div class="head"><h2>3. Backlogens sammansättning</h2>
     <span class="note">Speglar aktuellt filter. Klicka på en stapel för att öppna ärendelistan bakom siffran.</span></div>
   <div class="chartgrid">
@@ -212,7 +234,7 @@ details summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--ink2)}
   </div>
 </section>
 
-<section class="section">
+<section class="section" id="sek4">
   <div class="head"><h2>4. Inflöde mot utflöde</h2>
     <div class="controls">
       <button class="ghost" data-range="12" aria-pressed="true">12 mån</button>
@@ -232,7 +254,7 @@ details summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--ink2)}
   </div>
 </section>
 
-<section class="section">
+<section class="section" id="sek5">
   <div class="head"><h2>5. Nyckelord</h2>
     <span class="note">Ärendets registrerade sökord (Noresca Case Keywords), hela ärendestocken – följer samma filter som ovan. Observera: "ämnesområde" (vänster, överordnat nyckelord) och "kategori" (höger, ett eget fält på nyckelordet) är två olika klassificeringar och kan råka heta likadant, t.ex. "Custom/Utveckling" – de mäter inte samma sak.</span></div>
   <div class="chartgrid">
@@ -255,7 +277,7 @@ details summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--ink2)}
   <p class="sub" style="margin-top:8px" id="nyckelordnote"></p>
 </section>
 
-<section class="section">
+<section class="section" id="sek6">
   <div class="head"><h2>6. Kundbild</h2>
     <span class="note">Takt = inkomna ärenden per månad senaste 3 månaderna, jämfört med 12-månaderssnittet. Understrukna tal går att klicka på.</span></div>
   <div class="card"><div class="scroll"><table id="t_kund">
@@ -268,7 +290,7 @@ details summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--ink2)}
     </tr></thead><tbody></tbody></table></div></div>
 </section>
 
-<section class="section">
+<section class="section" id="sek78">
   <div class="split">
     <div>
       <div class="head"><h2>7. Ärendelista</h2>
@@ -293,7 +315,7 @@ details summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--ink2)}
   </div>
 </section>
 
-<section class="section">
+<section class="section" id="sek9">
   <div class="card foot">
     <details open>
       <summary>Så läses måtten – definitioner, antaganden och förbehåll</summary>
@@ -908,6 +930,30 @@ if(matchMedia('(prefers-color-scheme: dark)').matches){
 $('#dclose').onclick=closeDrill;
 $('#overlay').onclick=closeDrill;
 addEventListener('keydown',e=>{if(e.key==='Escape')closeDrill();});
+
+/* ---------- fokusvy ---------- */
+// Sätts av skriptet i <head> (data-vy på <html>) när sidan öppnas med
+// ?vy=kundbild eller ?vy=trend, t.ex. från en klickbar Portlet på NetSuite-
+// dashboarden. CSS:en döljer redan övriga sektioner (se <style>); här
+// justeras bara rubrik/titel och läggs en länk tillbaka till hela
+// dashboarden. Filtren i .controls är helt oförändrade och fungerar precis
+// som i den vanliga dashboarden.
+(function(){
+  const vy = document.documentElement.getAttribute('data-vy');
+  const TITLAR = {kundbild:'Kundbild', trend:'Inflöde mot utflöde'};
+  const titel = TITLAR[vy];
+  if(!titel) return; // inget eller okänt värde – visa hela dashboarden som vanligt
+  document.title = 'Supportdashboard – ' + titel;
+  $('h1').textContent = 'Supportdashboard – ' + titel;
+  const kvar = new URLSearchParams(location.search);
+  kvar.delete('vy');
+  const helaUrl = location.pathname + (kvar.toString() ? '?' + kvar.toString() : '');
+  const lank = el('a',{href:helaUrl,
+    style:'font-size:12px;color:var(--ink2);text-decoration:underline;align-self:center;white-space:nowrap'});
+  lank.textContent = '← Visa hela dashboarden';
+  $('.controls').prepend(lank);
+})();
+
 renderAll();
 </script>
 </body>

@@ -1,0 +1,14 @@
+<portlet scriptid="customscript_supportdashboard_trend10">
+    <name>Supportdashboard Trend 10d</name>
+    <notifyowner>T</notifyowner>
+    <portlettype>HTML</portlettype>
+    <scriptfile>[/SuiteScripts/supportdashboard/supportdashboard_portlet_trend10.js]</scriptfile>
+    <scriptdeployments>
+        <scriptdeployment scriptid="customdeploy_supportdashboard_trend10">
+            <isdeployed>T</isdeployed>
+            <loglevel>AUDIT</loglevel>
+            <status>RELEASED</status>
+            <title>Supportdashboard Trend 10d</title>
+        </scriptdeployment>
+    </scriptdeployments>
+</portlet>

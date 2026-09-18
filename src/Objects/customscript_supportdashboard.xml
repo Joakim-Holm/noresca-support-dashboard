@@ -8,7 +8,6 @@
             <loglevel>AUDIT</loglevel>
             <status>RELEASED</status>
             <title>Supportdashboard</title>
-            <availablewithoutlogin>F</availablewithoutlogin>
         </scriptdeployment>
     </scriptdeployments>
 </suitelet>
