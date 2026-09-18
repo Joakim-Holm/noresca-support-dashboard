@@ -169,35 +169,74 @@ Driftsättning och aktivering är identiskt med KPI-portleten ovan:
    (Customization → Scripting → Script Deployments), av samma skäl som
    Suiteleten och KPI-portleten – XML:et sätter medvetet ingen roll.
 
-## Trend-portleten (10 dagar) och fokusvyer i eget fönster
+## Trend-portleten (10 dagar), fokusvyer och klickbara KPI-siffror
 
-Två saker hör ihop här: en fjärde portlet som visar en kort trendglimt, och
-ett sätt att öppna en enskild sektion av huvuddashboarden – med samma filter
-som i headern – i ett eget fönster i stället för hela dashboarden.
+Tre saker hör ihop här: en fjärde portlet som visar en kort trendglimt, ett
+sätt att öppna en enskild sektion av huvuddashboarden – med samma filter som
+i headern – i ett eget fönster, och samma mekanism återanvänd för att göra
+KPI-portletens fyra siffror klickbara ner till ärendelistan.
 
-### Fokusvyer (`?vy=kundbild` / `?vy=trend`)
+### Fokusvyer (`#vy=kundbild` / `#vy=trend` / `#vy=drill&metric=…`)
 
 Suiteleten (`supportdashboard_suitelet.js`) och mallen (`dashboard_mall.html`)
-har fått stöd för att öppnas med en extra URL-parameter, `?vy=`, som visar
-bara **en** sektion i stället för hela dashboarden – men med exakt samma
-filterrad (Kund, Avtal, Typ, Arbetsart) som huvuddashboardens header, och
-exakt samma renderingslogik (samma `renderAll()`/`trend()`/`renderKund()`
+har fått stöd för att öppnas med en extra bit i URL:en, `#vy=…`, som visar
+bara **en** sektion (eller en enskild ärendelista, se "drill" nedan) i
+stället för hela dashboarden – men med exakt samma filterrad (Kund, Avtal,
+Typ, Arbetsart) som huvuddashboardens header, och exakt samma
+renderingslogik (samma `renderAll()`/`trend()`/`renderKund()`/`openDrill()`
 som annars). Inget nytt script eller ny data krävs – det är samma cachade
 `supportdashboard_live.html`-fil som redan serveras, bara med CSS-regler i
 mallen (`:root[data-vy="…"]`) som döljer övriga sektioner klientsidan innan
-sidan hinner måla upp dem. Suiteletens `onRequest` bryr sig bara om
-`action=refresh`/POST, så `?vy=…` passerar rakt igenom cachen utan någon
-serverändring.
+sidan hinner måla upp dem.
+
+**Viktigt: detta är ett URL-FRAGMENT (`#vy=…`), inte en vanlig
+query-parameter (`?vy=…`).** En tidigare version av den här funktionen
+använde `?vy=…`, och den visade sig ha ett allvarligt problem: NetSuites/
+Akamais infrastruktur kunde servera en äldre, cachad version av sidan för
+just den specifika query-strängen – även efter att "Uppdatera dashboard"
+redan hade körts och grundURL:en (utan `vy`) gav en helt färsk sida. Ett
+fragment skickas aldrig till servern (webbläsaren gör en identisk HTTP-
+förfrågan oavsett vad som står efter `#`), så samma cache-lager kan aldrig
+skilja på en fokusvy-länk och den vanliga dashboard-länken – problemet
+försvinner helt i stället för att behöva felsökas i NetSuites/Akamais
+cache-lager, som vi inte har insyn i eller kontroll över. Suiteletens
+`onRequest` bryr sig fortfarande bara om `action=refresh`/POST och rör inte
+fragmentet alls (det når aldrig servern), så ingen serverändring krävdes.
 
 Giltiga värden:
 
-- `?vy=kundbild` – visar bara sektion 6 (Kundbild).
-- `?vy=trend` – visar bara sektion 4 (Inflöde mot utflöde, med sin vanliga
+- `#vy=kundbild` – visar bara sektion 6 (Kundbild).
+- `#vy=trend` – visar bara sektion 4 (Inflöde mot utflöde, med sin vanliga
   12/24-månadersväxlare).
+- `#vy=drill&metric=backlog|utan_forstasvar|tysta30|nya30` – visar bara
+  ärendelistan (samma panel som huvuddashboardens `openDrill()`, men som
+  huvudinnehåll i stället för en slide-in-panel) bakom ett av de fyra måtten
+  i KPI-portleten. Se "Klickbara siffror i KPI-portleten" nedan.
 
 Ett okänt eller saknat värde ger hela dashboarden som vanligt (dagens
 beteende, oförändrat). En liten länk "← Visa hela dashboarden" läggs till
-automatiskt i fokusvyn.
+automatiskt i fokusvyn, och i drill-vyn går även Stäng-knappen, klick
+utanför panelen och Escape dit i stället för att bara dölja panelen (det
+finns inget bakom den att visa istället).
+
+Fokusvyerna är fullt reaktiva mot filtren: ändrar man Kund/Avtal/Typ/
+Arbetsart i headern medan en fokusvy är öppen uppdateras innehållet precis
+som i den vanliga dashboarden, inklusive drill-ärendelistan.
+
+### Klickbara siffror i KPI-portleten
+
+`supportdashboard_portlet.js`s fyra rutor (Öppen backlog, Utan första svar,
+Tysta > 30 dagar, Netto 30 dagar) är nu klickbara länkar, inte bara text.
+Varje siffra öppnar en `#vy=drill&metric=…`-fokusvy i ett eget fönster med
+ärendelistan bakom just det talet – samma tabell och samma logik som när man
+klickar en siffra i den fulla dashboarden. Måttdefinitionerna (vilka
+ärenden hör till varje siffra) ligger i `DRILL_DEFINITIONER` i
+`dashboard_mall.html` och hålls i synk manuellt med portletens egna
+beräkningar (samma mönster som STANGDA/TESTMONSTER). "Netto 30 dagar" är en
+differens (inkomna minus stängda) och kan inte peka på en enda ärendelista –
+den länkar till "inkomna senaste 30 dagarna" som närmaste enskilda lista;
+säg till om ni i stället vill se båda listorna (inkomna och stängda) sida
+vid sida.
 
 ### `supportdashboard_portlet_trend10.js`
 
@@ -212,7 +251,7 @@ undviker medvetet globala JS-namn som skulle kunna krocka med andra
 portletar.
 
 Knappen längst ner öppnar sektion 4 i sin fulla (månadsvisa) form som
-fokusvy (`?vy=trend`) i ett eget fönster – inte en 10-dagarsversion av den
+fokusvy (`#vy=trend`) i ett eget fönster – inte en 10-dagarsversion av den
 fulla vyn.
 
 Cachas 15 minuter, precis som övriga portletar.

@@ -23,9 +23,15 @@
  *
  * Klick på "Öppna Kundbild"-knappen tar dig INTE till hela dashboarden,
  * utan till en fokusvy av just sektion 6 (samma Suitelet, men öppnad med
- * ?vy=kundbild) – en egen flik/fönster med samma fyra filter (Kund, Avtal,
+ * #vy=kundbild) – en egen flik/fönster med samma fyra filter (Kund, Avtal,
  * Typ, Arbetsart) som huvuddashboardens header. Se dashboard_mall.html,
- * avsnittet "fokusvy", för hur URL-parametern tolkas klientsidan.
+ * avsnittet "fokusvy", för hur URL-fragmentet tolkas klientsidan.
+ *
+ * OBS: vy-värdet skickas som URL-FRAGMENT (#vy=kundbild), inte som vanlig
+ * query-parameter (?vy=kundbild) som en tidigare version gjorde – ett
+ * fragment skickas aldrig till servern, vilket visade sig krävas för att
+ * undvika att NetSuites/Akamais infrastruktur serverade en inaktuell cachad
+ * sida för just den query-strängen (även efter "Uppdatera dashboard").
  */
 define(['N/query', 'N/file', 'N/cache', 'N/url', 'N/log'],
 function (query, file, cache, url, log) {
@@ -122,14 +128,14 @@ function (query, file, cache, url, log) {
     // =======================================================================
     // Rendering
     // =======================================================================
-    function dashboardUrl(vy) {
+    function dashboardUrl(hash) {
         try {
-            return url.resolveScript({
+            var bas = url.resolveScript({
                 scriptId: DASHBOARD_SCRIPT_ID,
                 deploymentId: DASHBOARD_DEPLOY_ID,
-                returnExternalUrl: false,
-                params: vy ? { vy: vy } : undefined
+                returnExternalUrl: false
             });
+            return hash ? (bas + '#' + hash) : bas;
         } catch (e) {
             return '#';
         }
@@ -165,7 +171,7 @@ function (query, file, cache, url, log) {
             '<div style="font-size:11px;color:#6b6b66;margin-bottom:8px">' +
             'Flest öppna ärenden just nu, av ' + d.backlog + ' i hela backloggen</div>' +
             (rader || '<div style="color:#999;font-size:12px">Ingen öppen backlog</div>') +
-            '<a href="' + dashboardUrl('kundbild') + '" target="_blank" rel="noopener" style="display:inline-block;font-size:12px;margin-top:4px;' +
+            '<a href="' + dashboardUrl('vy=kundbild') + '" target="_blank" rel="noopener" style="display:inline-block;font-size:12px;margin-top:4px;' +
             'padding:6px 14px;border-radius:6px;background:#2a78d6;color:#fff;text-decoration:none">' +
             'Öppna Kundbild i eget fönster &rarr;</a>' +
             '</div>';

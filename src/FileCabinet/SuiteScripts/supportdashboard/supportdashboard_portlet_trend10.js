@@ -25,7 +25,11 @@
  *
  * Klick på knappen öppnar INTE denna 10-dagarsvy, utan hela sektion 4
  * (12/24-månadersvyn, med samma fyra filter som huvuddashboardens header)
- * som en fokusvy i ett eget fönster – ?vy=trend, se dashboard_mall.html.
+ * som en fokusvy i ett eget fönster – #vy=trend (URL-FRAGMENT, inte en
+ * vanlig query-parameter – se motiveringen i dashboard_mall.html/README:
+ * fragment skickas aldrig till servern, vilket krävs för att undvika att
+ * NetSuites/Akamais infrastruktur serverar en inaktuell cachad sida för en
+ * viss query-sträng även efter "Uppdatera dashboard").
  *
  * Byggd utan inline <script> i portlet-HTML:en (till skillnad från
  * huvuddashboardens interaktiva SVG-diagram): flera Custom Portlets kan
@@ -147,14 +151,14 @@ function (query, cache, url, log) {
     // =======================================================================
     // Rendering – helt statisk SVG (inget inline <script>, se filhuvudet).
     // =======================================================================
-    function dashboardUrl(vy) {
+    function dashboardUrl(hash) {
         try {
-            return url.resolveScript({
+            var bas = url.resolveScript({
                 scriptId: DASHBOARD_SCRIPT_ID,
                 deploymentId: DASHBOARD_DEPLOY_ID,
-                returnExternalUrl: false,
-                params: vy ? { vy: vy } : undefined
+                returnExternalUrl: false
             });
+            return hash ? (bas + '#' + hash) : bas;
         } catch (e) {
             return '#';
         }
@@ -215,7 +219,7 @@ function (query, cache, url, log) {
             '<div style="font-size:11px;color:#6b6b66;margin-bottom:8px">' +
             'Netto senaste 10 dagarna: <b style="color:' + nettoFarg + '">' + nettoTecken + d.net + '</b> ärenden ' +
             '(cache, max 15 min gammal, t.o.m. ' + escapeHtml(d.idag) + ')</div>' +
-            '<a href="' + dashboardUrl('trend') + '" target="_blank" rel="noopener" style="display:inline-block;font-size:12px;' +
+            '<a href="' + dashboardUrl('vy=trend') + '" target="_blank" rel="noopener" style="display:inline-block;font-size:12px;' +
             'padding:6px 14px;border-radius:6px;background:#2a78d6;color:#fff;text-decoration:none">' +
             'Öppna Inflöde/utflöde i eget fönster &rarr;</a>' +
             '</div>';

@@ -14,13 +14,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Supportdashboard – Noresca Admin</title>
 <script>
-// Fokusvy: en portlet kan länka hit med ?vy=kundbild eller ?vy=trend för att
-// bara visa en enskild sektion (med samma filterrad som hela dashboarden)
-// i ett eget fönster/flik. Sätts som attribut på <html> INNAN body hinner
-// målas, så att CSS-reglerna nedan (`:root[data-vy=...]`) döljer övriga
-// sektioner utan att man hinner se hela dashboarden blinka till först.
+// Fokusvy: en portlet kan länka hit med #vy=kundbild, #vy=trend eller
+// #vy=drill&metric=... för att bara visa en enskild sektion (med samma
+// filterrad som hela dashboarden) i ett eget fönster/flik.
+//
+// Detta läses ur URL-FRAGMENTET (#...), inte en vanlig query-parameter
+// (?vy=...) som en tidigare version använde. Skälet: ett fragment skickas
+// ALDRIG till servern - webbläsaren gör en identisk HTTP-förfrågan oavsett
+// vad som står efter #. Med ?vy=... som query-parameter visade det sig att
+// NetSuites/Akamais infrastruktur ändå kunde servera en äldre cachad variant
+// av sidan för just den query-strängen, trots att "Uppdatera dashboard"
+// redan hade körts och grundURL:en (utan vy) gav en färsk sida - något som
+// aldrig kan hända med ett fragment, eftersom det aldrig når nätverket.
+//
+// Sätts som attribut på <html> INNAN body hinner målas, så att CSS-reglerna
+// nedan (`:root[data-vy=...]`) döljer övriga sektioner utan att man hinner
+// se hela dashboarden blinka till först.
 (function(){
-  var vy = new URLSearchParams(location.search).get('vy');
+  var vy = new URLSearchParams(location.hash.replace(/^#/, '')).get('vy');
   if (vy) document.documentElement.setAttribute('data-vy', vy);
 })();
 </script>
@@ -174,6 +185,22 @@ details summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--ink2)}
 :root[data-vy="trend"] #sek3, :root[data-vy="trend"] #sek5,
 :root[data-vy="trend"] #sek6, :root[data-vy="trend"] #sek78,
 :root[data-vy="trend"] #sek9 { display:none }
+
+/* Fokusvy "drill" - en portlet-siffra (t.ex. i KPI-portleten) länkar hit
+   med #vy=drill&metric=... för att öppna ärendelistan bakom just den
+   siffran i eget fönster. Döljer alla vanliga sektioner och gör den
+   annars flytande/slide-in-panelen (#drawer, normalt öppnad via
+   openDrill() ovanpå resten av sidan) till huvudinnehållet istället. */
+:root[data-vy="drill"] #sek1, :root[data-vy="drill"] #sek2,
+:root[data-vy="drill"] #sek3, :root[data-vy="drill"] #sek4,
+:root[data-vy="drill"] #sek5, :root[data-vy="drill"] #sek6,
+:root[data-vy="drill"] #sek78, :root[data-vy="drill"] #sek9 { display:none }
+:root[data-vy="drill"] #overlay { display:none }
+:root[data-vy="drill"] #drawer {
+  position:static !important; width:100% !important; height:auto !important;
+  transform:none !important; box-shadow:none !important; border-left:none !important;
+  margin-top:16px;
+}
 </style>
 </head>
 <body>
@@ -370,6 +397,12 @@ const fmt = n => (n==null?'–':n.toLocaleString('sv-SE'));
 
 /* ---------- filter ---------- */
 let F = {kund:'', sla:'', typ:'', grupp:'', status:'', sok:'', range:12};
+// Sätts av fokusvy-blocket längst ner om sidan öppnades med
+// #vy=drill&metric=... (t.ex. från en klickbar siffra i KPI-portleten).
+// Läses av renderVyDrill(), som anropas från renderAll() - så att
+// ärendelistan i den utbrutna vyn uppdateras precis som Kundbild/Trend
+// gör när man ändrar Kund/Avtal/Typ/Arbetsart-filtren.
+let vyDrillMetric = null;
 function openCases(){
   return DATA.oppna.filter(o =>
     (!F.kund || o.kund===F.kund) && (!F.sla || o.sla===F.sla) && (!F.typ || o.kategori===F.typ) &&
@@ -562,7 +595,36 @@ function openDrill(title,sub,cases){
   $('#drawer').classList.add('on'); $('#overlay').classList.add('on');
   document.querySelector('#drawer .dbody').scrollTop=0;
 }
-function closeDrill(){$('#drawer').classList.remove('on');$('#overlay').classList.remove('on');hideTT();}
+function closeDrill(){
+  // I fokusvyn "drill" (se längst ner) finns inget bakom panelen att visa
+  // istället - Stäng, klick utanför och Escape ska då gå tillbaka till hela
+  // dashboarden snarare än att bara dölja panelen mot en tom sida.
+  if(document.documentElement.getAttribute('data-vy')==='drill'){
+    location.href = location.pathname + location.search; return;
+  }
+  $('#drawer').classList.remove('on');$('#overlay').classList.remove('on');hideTT();
+}
+
+// Samma fyra mått som visas i KPI-portleten (supportdashboard_portlet.js) -
+// hålls i synk manuellt med den, precis som andra delade definitioner i det
+// här projektet (STANGDA, TESTMONSTER m.fl.). "Netto 30 dagar" är en
+// differens och kan inte peka på en enda ärendelista - den länkas till
+// "inkomna senaste 30 dagarna" som närmaste enskilda lista.
+const DRILL_DEFINITIONER = {
+  backlog:          {titel:'Öppen backlog',                      hamta:()=>openCases()},
+  utan_forstasvar:  {titel:'Öppna utan registrerat första svar',  hamta:()=>openCases().filter(o=>!o.forstasvar)},
+  tysta30:          {titel:'Öppna, helt orörda i över 30 dagar',  hamta:()=>openCases().filter(o=>(o.tyst_dagar||0)>30)},
+  nya30:            {titel:'Inkomna senaste 30 dagarna',          hamta:()=>filteredAlla().filter(o=>o.alder<=30)}
+};
+function renderVyDrill(){
+  if(!vyDrillMetric) return;
+  const def = DRILL_DEFINITIONER[vyDrillMetric];
+  if(!def) return;
+  const scope = (F.kund||F.sla||F.typ||F.grupp)
+    ? `filter: ${[F.kund,F.sla,F.typ,F.grupp].filter(Boolean).join(' · ')}`
+    : 'hela ärendestocken';
+  openDrill(def.titel, def.titel+' · '+scope, def.hamta());
+}
 
 /* ---------- charts ---------- */
 const SEQ=['var(--seq-250)','var(--seq-350)','var(--seq-450)','var(--seq-550)','var(--seq-650)'];
@@ -896,6 +958,7 @@ function renderAll(){
   hbar($('#c_sev'),agg(oc,'sev').sort((a,b)=>a.namn.localeCompare(b.namn,'sv')),null,
     r=>openDrill('Severity: '+r.namn,`Öppna ärenden med severity ${r.namn}${scope}`,oc.filter(o=>o.sev===r.namn)));
   trend(); renderNyckelord(); renderNyckelordKategori(); renderKund(); renderCases(); renderHandl();
+  renderVyDrill();
   $('#scope').textContent = (F.kund||F.sla||F.typ||F.grupp)
     ? `filtrerat: ${[F.kund,F.sla,F.typ,F.grupp].filter(Boolean).join(' · ')}`
     : `hela ärendestocken · ${fmt(DATA.totalt_arenden)} registrerade ärenden sedan ${DATA.forsta_arende}`;
@@ -932,22 +995,40 @@ $('#overlay').onclick=closeDrill;
 addEventListener('keydown',e=>{if(e.key==='Escape')closeDrill();});
 
 /* ---------- fokusvy ---------- */
-// Sätts av skriptet i <head> (data-vy på <html>) när sidan öppnas med
-// ?vy=kundbild eller ?vy=trend, t.ex. från en klickbar Portlet på NetSuite-
-// dashboarden. CSS:en döljer redan övriga sektioner (se <style>); här
-// justeras bara rubrik/titel och läggs en länk tillbaka till hela
-// dashboarden. Filtren i .controls är helt oförändrade och fungerar precis
-// som i den vanliga dashboarden.
+// Sätts av skriptet i <head> (data-vy på <html>, läst ur #vy=... i
+// URL-fragmentet) när sidan öppnas från en klickbar Portlet på NetSuite-
+// dashboarden: #vy=kundbild, #vy=trend eller #vy=drill&metric=.... CSS:en
+// döljer redan övriga sektioner (se <style>); här justeras bara
+// rubrik/titel, läggs en länk tillbaka till hela dashboarden, och för
+// "drill" sätts vyDrillMetric så att renderVyDrill() (anropad från
+// renderAll(), som körs direkt efter detta block) öppnar rätt ärendelista.
+// Filtren i .controls är helt oförändrade och fungerar precis som i den
+// vanliga dashboarden, inklusive i drill-vyn.
 (function(){
   const vy = document.documentElement.getAttribute('data-vy');
+  if(!vy) return; // inget värde i fragmentet – visa hela dashboarden som vanligt
+  const helaUrl = location.pathname + location.search; // samma URL utan fragmentet
+
+  if(vy === 'drill'){
+    const metric = new URLSearchParams(location.hash.replace(/^#/, '')).get('metric');
+    const def = DRILL_DEFINITIONER[metric];
+    document.title = 'Supportdashboard – ' + (def ? def.titel : 'Ärendelista');
+    $('h1').textContent = 'Supportdashboard – ' + (def ? def.titel : 'Ärendelista');
+    const lank = el('a',{href:helaUrl,
+      style:'font-size:12px;color:var(--ink2);text-decoration:underline;align-self:center;white-space:nowrap'});
+    lank.textContent = '← Visa hela dashboarden';
+    $('.controls').prepend(lank);
+    // Stäng/klick utanför/Escape går tillbaka till hela dashboarden i denna
+    // vy - se closeDrill(), som redan är kopplad till alla tre sedan tidigare.
+    if(def) vyDrillMetric = metric; // renderVyDrill() (via renderAll() nedan) öppnar listan
+    return;
+  }
+
   const TITLAR = {kundbild:'Kundbild', trend:'Inflöde mot utflöde'};
   const titel = TITLAR[vy];
-  if(!titel) return; // inget eller okänt värde – visa hela dashboarden som vanligt
+  if(!titel) return; // okänt värde – visa hela dashboarden som vanligt
   document.title = 'Supportdashboard – ' + titel;
   $('h1').textContent = 'Supportdashboard – ' + titel;
-  const kvar = new URLSearchParams(location.search);
-  kvar.delete('vy');
-  const helaUrl = location.pathname + (kvar.toString() ? '?' + kvar.toString() : '');
   const lank = el('a',{href:helaUrl,
     style:'font-size:12px;color:var(--ink2);text-decoration:underline;align-self:center;white-space:nowrap'});
   lank.textContent = '← Visa hela dashboarden';

@@ -27,6 +27,14 @@
  * Efter deploy: Personalize Dashboard → Custom Portlet → Set Up → välj
  * detta script som källa. Portlet-deploymentets Audience/roller sätts
  * manuellt i NetSuite-gränssnittet, se README.
+ *
+ * Varje siffra i rutan är klickbar och öppnar ärendelistan bakom just det
+ * talet i eget fönster – en fokusvy av huvuddashboardens drawer/openDrill,
+ * öppnad med #vy=drill&metric=... (URL-FRAGMENT, aldrig en vanlig query-
+ * parameter – se README för varför). Måttdefinitionerna (vilka ärenden som
+ * hör till varje siffra) hålls i synk manuellt med DRILL_DEFINITIONER i
+ * dashboard_mall.html. "Netto 30 dagar" är en differens och länkas till
+ * "inkomna senaste 30 dagarna" som närmaste enskilda lista.
  */
 define(['N/query', 'N/cache', 'N/url', 'N/log'],
 function (query, cache, url, log) {
@@ -139,26 +147,31 @@ function (query, cache, url, log) {
     // Rendering – ren HTML/inline-CSS, ingen extern CSS/JS (Inline HTML-
     // portletar bör vara helt självbärande).
     // =======================================================================
-    function dashboardUrl() {
+    function dashboardUrl(hash) {
         try {
-            return url.resolveScript({
+            var bas = url.resolveScript({
                 scriptId: DASHBOARD_SCRIPT_ID,
                 deploymentId: DASHBOARD_DEPLOY_ID,
                 returnExternalUrl: false
             });
+            return hash ? (bas + '#' + hash) : bas;
         } catch (e) {
             return '#';
         }
     }
 
-    function tile(etikett, varde, farg) {
-        return '' +
-            '<div style="border:1px solid #e3e3e0;border-radius:8px;padding:8px 10px;min-width:0">' +
+    function tile(etikett, varde, farg, metric) {
+        var inneh =
             '<div style="font-size:11px;color:#6b6b66;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
             escapeHtml(etikett) + '</div>' +
             '<div style="font-size:22px;font-weight:600;line-height:1.3;' +
-            (farg ? 'color:' + farg + ';' : '') + '">' + escapeHtml(String(varde)) + '</div>' +
-            '</div>';
+            (farg ? 'color:' + farg + ';' : '') + '">' + escapeHtml(String(varde)) + '</div>';
+        var stil = 'display:block;border:1px solid #e3e3e0;border-radius:8px;padding:8px 10px;min-width:0';
+        if (metric) {
+            return '<a href="' + dashboardUrl('vy=drill&metric=' + metric) + '" target="_blank" rel="noopener" ' +
+                'style="' + stil + ';text-decoration:none;color:inherit;cursor:pointer">' + inneh + '</a>';
+        }
+        return '<div style="' + stil + '">' + inneh + '</div>';
     }
 
     function escapeHtml(s) {
@@ -173,10 +186,10 @@ function (query, cache, url, log) {
         return '' +
             '<div style="font:13px/1.4 system-ui,-apple-system,BlinkMacSystemFont,sans-serif;padding:4px 2px 2px">' +
             '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">' +
-            tile('Öppen backlog', kpi.backlog, null) +
-            tile('Utan första svar', kpi.utan_forstasvar, kpi.utan_forstasvar > 0 ? '#e34948' : null) +
-            tile('Tysta > 30 dagar', kpi.tysta30, kpi.tysta30 > 0 ? '#eb6834' : null) +
-            tile('Netto 30 dagar', nettoTecken + kpi.netto30, nettoFarg) +
+            tile('Öppen backlog', kpi.backlog, null, 'backlog') +
+            tile('Utan första svar', kpi.utan_forstasvar, kpi.utan_forstasvar > 0 ? '#e34948' : null, 'utan_forstasvar') +
+            tile('Tysta > 30 dagar', kpi.tysta30, kpi.tysta30 > 0 ? '#eb6834' : null, 'tysta30') +
+            tile('Netto 30 dagar', nettoTecken + kpi.netto30, nettoFarg, 'nya30') +
             '</div>' +
             '<div style="font-size:11px;color:#6b6b66;margin-bottom:8px">' +
             'Uppdaterad ' + escapeHtml(kpi.uppdaterad) + ' (cache, max 15 min gammal) &middot; ' +
