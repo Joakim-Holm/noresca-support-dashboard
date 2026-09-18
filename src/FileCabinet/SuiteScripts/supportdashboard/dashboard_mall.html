@@ -1005,44 +1005,66 @@ addEventListener('keydown',e=>{if(e.key==='Escape')closeDrill();});
 // Filtren i .controls är helt oförändrade och fungerar precis som i den
 // vanliga dashboarden, inklusive i drill-vyn.
 (function(){
-  // Läser #vy=... direkt ur location.hash HÄR IGEN, i stället för att bara
-  // lita på attributet skriptet i <head> försökte sätta. I praktiken visade
-  // det sig att location.hash inte alltid var ifyllt ännu när det tidiga
-  // head-skriptet körde (troligen något NetSuite gör i navigeringskedjan
-  // innan sidan är klar) - det gav en sida utan fokusvy trots att adressen
-  // i webbläsaren såg helt rätt ut. Att läsa om det här, efter att hela
-  // sidan laddats, är den robusta varianten; head-skriptet får stå kvar som
-  // ett bästa-försök för att undvika att hela dashboarden hinner blinka
-  // till innan detta block hunnit köra.
-  const vy = new URLSearchParams(location.hash.replace(/^#/, '')).get('vy');
-  if(!vy) return; // inget värde i fragmentet – visa hela dashboarden som vanligt
-  document.documentElement.setAttribute('data-vy', vy);
-  const helaUrl = location.pathname + location.search; // samma URL utan fragmentet
+  // Läser #vy=... ur location.hash, i stället för att bara lita på
+  // attributet skriptet i <head> försökte sätta. I praktiken visade det sig
+  // INTE räcka att läsa om det här en gång efter sidladdning heller - i
+  // live-test var location.hash fortfarande tomt även i det här skriptet,
+  // längst ner i <body>, vid själva den inledande sidnavigeringen (bekräftat
+  // 2026-09-18: samma URL, samma kod, gav data-vy=null direkt efter en
+  // vanlig navigering men rätt värde när koden kördes manuellt någon
+  // sekund senare). Roten till detta i NetSuites egen sidladdningskedja är
+  // inte klarlagd, men beteendet är konsekvent: fragmentet DYKER UPP något
+  // senare än "hela sidan har laddats". Lösningen är att försöka flera
+  // gånger under de första sekunderna och köra igen vid hashchange, i
+  // stället för att anta att en enda avläsning - oavsett hur sen - räcker.
+  let vyTillampad = false;
 
-  if(vy === 'drill'){
-    const metric = new URLSearchParams(location.hash.replace(/^#/, '')).get('metric');
-    const def = DRILL_DEFINITIONER[metric];
-    document.title = 'Supportdashboard – ' + (def ? def.titel : 'Ärendelista');
-    $('h1').textContent = 'Supportdashboard – ' + (def ? def.titel : 'Ärendelista');
+  function tillampaFokusvy(){
+    if (vyTillampad) return true;
+    const vy = new URLSearchParams(location.hash.replace(/^#/, '')).get('vy');
+    if(!vy) return false; // inget värde ännu - kan bero på att hash inte hunnit fyllas i, försök igen
+    vyTillampad = true;
+    window.removeEventListener('hashchange', tillampaFokusvy);
+
+    document.documentElement.setAttribute('data-vy', vy);
+    const helaUrl = location.pathname + location.search; // samma URL utan fragmentet
+
+    if(vy === 'drill'){
+      const metric = new URLSearchParams(location.hash.replace(/^#/, '')).get('metric');
+      const def = DRILL_DEFINITIONER[metric];
+      document.title = 'Supportdashboard – ' + (def ? def.titel : 'Ärendelista');
+      $('h1').textContent = 'Supportdashboard – ' + (def ? def.titel : 'Ärendelista');
+      const lank = el('a',{href:helaUrl,
+        style:'font-size:12px;color:var(--ink2);text-decoration:underline;align-self:center;white-space:nowrap'});
+      lank.textContent = '← Visa hela dashboarden';
+      $('.controls').prepend(lank);
+      // Stäng/klick utanför/Escape går tillbaka till hela dashboarden i denna
+      // vy - se closeDrill(), som redan är kopplad till alla tre sedan tidigare.
+      if(def){
+        vyDrillMetric = metric;
+        renderVyDrill(); // renderAll() nedan kan redan ha körts utan detta värde - visa listan nu
+      }
+      return true;
+    }
+
+    const TITLAR = {kundbild:'Kundbild', trend:'Inflöde mot utflöde'};
+    const titel = TITLAR[vy];
+    if(!titel) return true; // okänt värde – visa hela dashboarden som vanligt
+    document.title = 'Supportdashboard – ' + titel;
+    $('h1').textContent = 'Supportdashboard – ' + titel;
     const lank = el('a',{href:helaUrl,
       style:'font-size:12px;color:var(--ink2);text-decoration:underline;align-self:center;white-space:nowrap'});
     lank.textContent = '← Visa hela dashboarden';
     $('.controls').prepend(lank);
-    // Stäng/klick utanför/Escape går tillbaka till hela dashboarden i denna
-    // vy - se closeDrill(), som redan är kopplad till alla tre sedan tidigare.
-    if(def) vyDrillMetric = metric; // renderVyDrill() (via renderAll() nedan) öppnar listan
-    return;
+    return true;
   }
 
-  const TITLAR = {kundbild:'Kundbild', trend:'Inflöde mot utflöde'};
-  const titel = TITLAR[vy];
-  if(!titel) return; // okänt värde – visa hela dashboarden som vanligt
-  document.title = 'Supportdashboard – ' + titel;
-  $('h1').textContent = 'Supportdashboard – ' + titel;
-  const lank = el('a',{href:helaUrl,
-    style:'font-size:12px;color:var(--ink2);text-decoration:underline;align-self:center;white-space:nowrap'});
-  lank.textContent = '← Visa hela dashboarden';
-  $('.controls').prepend(lank);
+  if(!tillampaFokusvy()){
+    window.addEventListener('hashchange', tillampaFokusvy);
+    // Flera försök under de första sekunderna - se kommentaren ovan om
+    // varför en enda, även sen, avläsning inte visade sig vara tillförlitlig.
+    [50, 150, 400, 900, 1800].forEach(function(ms){ setTimeout(tillampaFokusvy, ms); });
+  }
 })();
 
 renderAll();
