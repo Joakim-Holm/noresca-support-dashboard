@@ -251,6 +251,31 @@ Misstänker man att en fix inte syns trots lyckad deploy, kontrollera i
 första hand om knappen klickats efter den senaste deployen – inte bara om
 deployen själv lyckades.
 
+**Grundorsaken till att "Uppdatera dashboard" verkade göra ingenting alls
+(löst 2026-09-18):** ovanstående två fallgropar var inte hela historien.
+Även med en färsk deploy och ett nyligen klickat "Uppdatera dashboard"
+visade sig den sparade ögonblicksbilden (`supportdashboard_live.html`)
+aldrig faktiskt ändras. `sparaGenereradFil()` i `supportdashboard_suitelet.js`
+använde NetSuites egna dokumenterade mönster för att uppdatera en fil:
+`file.load()` en befintlig fil, sätt `.contents`, kör `.save()`. Det gav
+aldrig något synligt fel - `save()` returnerade rätt fil-id och
+förbrukade normal governance - men en kontrolläsning direkt efter, i
+SAMMA skriptkörning, visade att filens storlek fortfarande var den
+gamla. Bekräftat svart på vitt i Script Deployment-postens Execution Log
+(`Customization > Scripting > Script Deployments > Supportdashboard >
+Execution Log`) efter att diagnostikloggning lagts till temporärt. Detta
+är alltså varken ett cache-, routing- eller behörighetsproblem, utan att
+sparningen i sig aldrig slog igenom - en genuin brist i "mutera en
+inläst fil"-mönstret i den här miljön, trots att det är NetSuites egen
+rekommenderade metod.
+
+Fixen: `sparaGenereradFil()` muterar aldrig längre en inläst fil. Den
+raderar i stället den gamla `supportdashboard_live.html` (om den finns)
+och skapar alltid en ny med `file.create()` - beprövat pålitligt, det var
+så filen skapades allra första gången. Se git-historiken för den fulla
+diagnostikloggningen som användes för att hitta detta, om samma mönster
+någonsin misstänks i en annan del av kodbasen.
+
 ### Klickbara siffror i KPI-portleten
 
 `supportdashboard_portlet.js`s fyra rutor (Öppen backlog, Utan första svar,
